@@ -1,4 +1,4 @@
-# werkyn
+![werkyn_logo](https://github.com/user-attachments/assets/1d9af671-7838-45ee-a810-54a30e605c30)
 Open-source project management and collaberation for teams.
 
 ## Project Managment
@@ -12,3 +12,4 @@ Open-source project management and collaberation for teams.
 
 # Personal Files and Team Shares
 <img width="1219" height="538" alt="werkyn-drive" src="https://github.com/user-attachments/assets/16185112-393a-48d7-97b4-cf5af73360bd" />
+
