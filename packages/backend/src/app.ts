@@ -1,0 +1,95 @@
+// Enable BigInt JSON serialization (safe for file sizes well under Number.MAX_SAFE_INTEGER)
+(BigInt.prototype as any).toJSON = function () {
+  return Number(this);
+};
+
+import Fastify from "fastify";
+import { getLoggerConfig } from "./plugins/logger.js";
+import prismaPlugin from "./plugins/prisma.js";
+import errorPlugin from "./plugins/errors.js";
+import corsPlugin from "./plugins/cors.js";
+import cookiePlugin from "./plugins/cookie.js";
+import rateLimitPlugin from "./plugins/rate-limit.js";
+import securityPlugin from "./plugins/security.js";
+import staticPlugin from "./plugins/static.js";
+import websocketPlugin from "./plugins/websocket.js";
+import multipartPlugin from "./plugins/multipart.js";
+import storagePlugin from "./plugins/storage.js";
+import authRoutes from "./modules/auth/auth.routes.js";
+import usersRoutes from "./modules/users/users.routes.js";
+import workspacesRoutes from "./modules/workspaces/workspaces.routes.js";
+import projectsRoutes from "./modules/projects/projects.routes.js";
+import statusesRoutes from "./modules/statuses/statuses.routes.js";
+import labelsRoutes from "./modules/labels/labels.routes.js";
+import tasksRoutes from "./modules/tasks/tasks.routes.js";
+import invitesRoutes from "./modules/invites/invites.routes.js";
+import uploadsRoutes from "./modules/uploads/uploads.routes.js";
+import subtasksRoutes from "./modules/subtasks/subtasks.routes.js";
+import commentsRoutes from "./modules/comments/comments.routes.js";
+import realtimeRoutes from "./modules/realtime/realtime.routes.js";
+import notificationsRoutes from "./modules/notifications/notifications.routes.js";
+import customFieldsRoutes from "./modules/custom-fields/custom-fields.routes.js";
+import templatesRoutes from "./modules/templates/templates.routes.js";
+import recurringRoutes from "./modules/recurring/recurring.routes.js";
+import filesRoutes from "./modules/files/files.routes.js";
+import teamFoldersRoutes from "./modules/team-folders/team-folders.routes.js";
+import attachmentsRoutes from "./modules/attachments/attachments.routes.js";
+import groupsRoutes from "./modules/groups/groups.routes.js";
+import wikiRoutes from "./modules/wiki/wiki.routes.js";
+import timeRoutes from "./modules/time/time.routes.js";
+import { broadcast, broadcastToWorkspace, broadcastToUser } from "./modules/realtime/realtime.service.js";
+
+export async function buildApp() {
+  const app = Fastify({
+    logger: getLoggerConfig(),
+  });
+
+  // Plugins (order matters)
+  await app.register(prismaPlugin);
+  await app.register(errorPlugin);
+  await app.register(corsPlugin);
+  await app.register(cookiePlugin);
+  await app.register(rateLimitPlugin);
+  await app.register(securityPlugin);
+  await app.register(staticPlugin);
+  await app.register(websocketPlugin);
+  await app.register(multipartPlugin);
+  await app.register(storagePlugin);
+
+  // Health check
+  app.get("/api/health", async (request) => {
+    await app.prisma.$queryRaw`SELECT 1`;
+    return { status: "ok", timestamp: new Date().toISOString() };
+  });
+
+  // Module routes
+  await app.register(authRoutes, { prefix: "/api/auth" });
+  await app.register(usersRoutes, { prefix: "/api/users" });
+  await app.register(workspacesRoutes, { prefix: "/api/workspaces" });
+  await app.register(projectsRoutes, { prefix: "/api" });
+  await app.register(statusesRoutes, { prefix: "/api/projects" });
+  await app.register(labelsRoutes, { prefix: "/api/projects" });
+  await app.register(tasksRoutes, { prefix: "/api" });
+  await app.register(subtasksRoutes, { prefix: "/api" });
+  await app.register(commentsRoutes, { prefix: "/api" });
+  await app.register(invitesRoutes, { prefix: "/api" });
+  await app.register(uploadsRoutes, { prefix: "/api" });
+  await app.register(realtimeRoutes, { prefix: "/api" });
+  await app.register(notificationsRoutes, { prefix: "/api/notifications" });
+  await app.register(customFieldsRoutes, { prefix: "/api/projects" });
+  await app.register(templatesRoutes, { prefix: "/api/projects" });
+  await app.register(recurringRoutes, { prefix: "/api/projects" });
+  await app.register(filesRoutes, { prefix: "/api" });
+  await app.register(teamFoldersRoutes, { prefix: "/api" });
+  await app.register(attachmentsRoutes, { prefix: "/api" });
+  await app.register(groupsRoutes, { prefix: "/api" });
+  await app.register(wikiRoutes, { prefix: "/api" });
+  await app.register(timeRoutes, { prefix: "/api" });
+
+  // Decorate with broadcast functions for use by other modules
+  app.decorate("broadcast", broadcast);
+  app.decorate("broadcastToWorkspace", broadcastToWorkspace);
+  app.decorate("broadcastToUser", broadcastToUser);
+
+  return app;
+}

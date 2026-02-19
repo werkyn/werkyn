@@ -1,0 +1,119 @@
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { api } from "@/lib/api-client";
+import { useAuthStore } from "@/stores/auth-store";
+import { router } from "@/lib/router";
+import { toast } from "sonner";
+
+interface User {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  jobTitle: string | null;
+  phone: string | null;
+  timezone: string | null;
+  emailVerified: boolean;
+}
+
+interface WorkspaceMembership {
+  id: string;
+  workspaceId: string;
+  role: "ADMIN" | "MEMBER" | "VIEWER";
+  workspace: {
+    id: string;
+    name: string;
+    slug: string;
+    logoUrl: string | null;
+  };
+}
+
+interface AuthResponse {
+  data: {
+    user: User;
+    accessToken: string;
+    workspaces: WorkspaceMembership[];
+  };
+}
+
+export function useLogin(inviteToken?: string) {
+  const navigate = useNavigate();
+  return useMutation({
+    mutationFn: (data: { email: string; password: string }) =>
+      api.post("auth/login", { json: data }).json<AuthResponse>(),
+    onSuccess: async (res) => {
+      const { user, accessToken, workspaces } = res.data;
+      useAuthStore.getState().setAuth(user, accessToken, workspaces);
+      await router.invalidate();
+      if (inviteToken) {
+        navigate({ to: "/invite/$token", params: { token: inviteToken } });
+      } else {
+        navigate({ to: "/" });
+      }
+    },
+  });
+}
+
+export function useRegister(inviteToken?: string) {
+  const navigate = useNavigate();
+  return useMutation({
+    mutationFn: (data: {
+      displayName: string;
+      email: string;
+      password: string;
+    }) =>
+      api
+        .post("auth/register", {
+          json: { ...data, inviteToken },
+        })
+        .json<AuthResponse>(),
+    onSuccess: async (res) => {
+      const { user, accessToken, workspaces } = res.data;
+      useAuthStore.getState().setAuth(user, accessToken, workspaces);
+      await router.invalidate();
+      navigate({ to: "/" });
+    },
+  });
+}
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (data: { email: string }) =>
+      api.post("auth/forgot-password", { json: data }).json(),
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: ({ token, password }: { token: string; password: string }) =>
+      api.post(`auth/reset-password/${token}`, { json: { password } }).json(),
+  });
+}
+
+export function useVerifyEmail() {
+  return useMutation({
+    mutationFn: ({ token }: { token: string }) =>
+      api
+        .post(`auth/verify-email/${token}`)
+        .json<{ data: { user: User } }>(),
+    onSuccess: (res) => {
+      const store = useAuthStore.getState();
+      if (store.user) {
+        store.setAuth(
+          { ...store.user, emailVerified: true },
+          store.accessToken!,
+          store.workspaces,
+        );
+      }
+      toast.success("Email verified successfully");
+    },
+  });
+}
+
+export function useResendVerification() {
+  return useMutation({
+    mutationFn: () => api.post("auth/resend-verification").json(),
+    onSuccess: () => toast.success("Verification email sent"),
+    onError: () => toast.error("Failed to send verification email"),
+  });
+}

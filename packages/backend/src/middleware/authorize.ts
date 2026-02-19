@@ -1,0 +1,157 @@
+import type { FastifyRequest, FastifyReply } from "fastify";
+import { ForbiddenError, NotFoundError, UnauthorizedError } from "../utils/errors.js";
+import type { WorkspaceRole } from "@prisma/client";
+
+type AllowedRole = "ADMIN" | "MEMBER" | "VIEWER";
+
+export function authorize(...allowedRoles: AllowedRole[]) {
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    if (!request.user) {
+      throw new UnauthorizedError();
+    }
+
+    const params = request.params as Record<string, string>;
+
+    // Resolve workspaceId from route params
+    let workspaceId: string | undefined = params.wid;
+
+    // If no :wid, try resolving from project (:pid) or task (:tid)
+    if (!workspaceId && params.pid) {
+      const project = await request.server.prisma.project.findUnique({
+        where: { id: params.pid },
+        select: { workspaceId: true },
+      });
+      if (!project) throw new NotFoundError("Project not found");
+      workspaceId = project.workspaceId;
+    }
+
+    if (!workspaceId && params.tid) {
+      const task = await request.server.prisma.task.findUnique({
+        where: { id: params.tid },
+        select: { project: { select: { workspaceId: true } } },
+      });
+      if (!task) throw new NotFoundError("Task not found");
+      workspaceId = task.project.workspaceId;
+    }
+
+    // Resolve from time entry :eid
+    if (!workspaceId && params.eid) {
+      const timeEntry = await request.server.prisma.timeEntry.findUnique({
+        where: { id: params.eid },
+        select: { workspaceId: true },
+      });
+      if (!timeEntry) throw new NotFoundError("Time entry not found");
+      workspaceId = timeEntry.workspaceId;
+    }
+
+    // Resolve from group :gid
+    if (!workspaceId && params.gid) {
+      const group = await request.server.prisma.group.findUnique({
+        where: { id: params.gid },
+        select: { workspaceId: true },
+      });
+      if (!group) throw new NotFoundError("Group not found");
+      workspaceId = group.workspaceId;
+    }
+
+    // Resolve from wiki space :sid
+    if (!workspaceId && params.sid) {
+      const wikiSpace = await request.server.prisma.wikiSpace.findUnique({
+        where: { id: params.sid },
+        select: { workspaceId: true },
+      });
+      if (!wikiSpace) throw new NotFoundError("Wiki space not found");
+      workspaceId = wikiSpace.workspaceId;
+    }
+
+    // Resolve from wiki page :pgid
+    if (!workspaceId && params.pgid) {
+      const wikiPage = await request.server.prisma.wikiPage.findUnique({
+        where: { id: params.pgid },
+        select: { space: { select: { workspaceId: true } } },
+      });
+      if (!wikiPage) throw new NotFoundError("Wiki page not found");
+      workspaceId = wikiPage.space.workspaceId;
+    }
+
+    // Resolve from wiki comment :cid
+    if (!workspaceId && params.cid) {
+      const wikiComment = await request.server.prisma.wikiPageComment.findUnique({
+        where: { id: params.cid },
+        select: { page: { select: { space: { select: { workspaceId: true } } } } },
+      });
+      if (!wikiComment) throw new NotFoundError("Wiki comment not found");
+      workspaceId = wikiComment.page.space.workspaceId;
+    }
+
+    // Resolve from wiki version :vid
+    if (!workspaceId && params.vid) {
+      const wikiVersion = await request.server.prisma.wikiPageVersion.findUnique({
+        where: { id: params.vid },
+        select: { page: { select: { space: { select: { workspaceId: true } } } } },
+      });
+      if (!wikiVersion) throw new NotFoundError("Wiki version not found");
+      workspaceId = wikiVersion.page.space.workspaceId;
+    }
+
+    // Resolve from wiki share :shid
+    if (!workspaceId && params.shid) {
+      const wikiShare = await request.server.prisma.wikiPageShare.findUnique({
+        where: { id: params.shid },
+        select: { page: { select: { space: { select: { workspaceId: true } } } } },
+      });
+      if (!wikiShare) throw new NotFoundError("Wiki share not found");
+      workspaceId = wikiShare.page.space.workspaceId;
+    }
+
+    // Resolve from subtask or comment :id param
+    if (!workspaceId && params.id) {
+      const subtask = await request.server.prisma.subtask.findUnique({
+        where: { id: params.id },
+        select: { task: { select: { project: { select: { workspaceId: true } } } } },
+      });
+      if (subtask) {
+        workspaceId = subtask.task.project.workspaceId;
+      } else {
+        const comment = await request.server.prisma.comment.findUnique({
+          where: { id: params.id },
+          select: { task: { select: { project: { select: { workspaceId: true } } } } },
+        });
+        if (comment) {
+          workspaceId = comment.task.project.workspaceId;
+        } else {
+          throw new NotFoundError("Resource not found");
+        }
+      }
+    }
+
+    if (!workspaceId) {
+      throw new ForbiddenError("Cannot determine workspace context");
+    }
+
+    const member = await request.server.prisma.workspaceMember.findUnique({
+      where: {
+        userId_workspaceId: {
+          userId: request.user.id,
+          workspaceId,
+        },
+      },
+      select: {
+        id: true,
+        userId: true,
+        workspaceId: true,
+        role: true,
+      },
+    });
+
+    if (!member) {
+      throw new ForbiddenError("Not a member of this workspace");
+    }
+
+    if (!allowedRoles.includes(member.role as AllowedRole)) {
+      throw new ForbiddenError("Insufficient permissions");
+    }
+
+    request.workspaceMember = member;
+  };
+}

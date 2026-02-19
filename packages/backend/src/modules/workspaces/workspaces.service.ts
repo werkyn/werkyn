@@ -1,0 +1,420 @@
+import type { PrismaClient, Prisma } from "@prisma/client";
+import type {
+  CreateWorkspaceInput,
+  UpdateWorkspaceInput,
+  UpdateWorkspaceMemberInput,
+  UpdateWorkspaceSettingsInput,
+  WorkspaceSearchInput,
+} from "@pm/shared";
+import { ConflictError, ForbiddenError, NotFoundError } from "../../utils/errors.js";
+
+export async function createWorkspace(
+  prisma: PrismaClient,
+  userId: string,
+  data: CreateWorkspaceInput,
+) {
+  const existing = await prisma.workspace.findUnique({
+    where: { slug: data.slug },
+  });
+  if (existing) {
+    throw new ConflictError("Workspace slug already in use");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const workspace = await tx.workspace.create({
+      data: {
+        name: data.name,
+        slug: data.slug,
+      },
+    });
+
+    await tx.workspaceMember.create({
+      data: {
+        userId,
+        workspaceId: workspace.id,
+        role: "ADMIN",
+      },
+    });
+
+    return workspace;
+  });
+}
+
+export async function listWorkspaces(prisma: PrismaClient, userId: string) {
+  const memberships = await prisma.workspaceMember.findMany({
+    where: { userId },
+    include: {
+      workspace: true,
+    },
+    orderBy: { joinedAt: "asc" },
+  });
+
+  return memberships.map((m) => ({
+    ...m.workspace,
+    role: m.role,
+    membershipId: m.id,
+  }));
+}
+
+export async function getWorkspace(prisma: PrismaClient, workspaceId: string) {
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    include: {
+      _count: { select: { members: true, projects: true } },
+    },
+  });
+
+  if (!workspace) {
+    throw new NotFoundError("Workspace not found");
+  }
+
+  return workspace;
+}
+
+export async function updateWorkspace(
+  prisma: PrismaClient,
+  workspaceId: string,
+  data: UpdateWorkspaceInput,
+) {
+  if (data.slug) {
+    const existing = await prisma.workspace.findUnique({
+      where: { slug: data.slug },
+    });
+    if (existing && existing.id !== workspaceId) {
+      throw new ConflictError("Workspace slug already in use");
+    }
+  }
+
+  return prisma.workspace.update({
+    where: { id: workspaceId },
+    data,
+  });
+}
+
+export async function deleteWorkspace(
+  prisma: PrismaClient,
+  workspaceId: string,
+) {
+  await prisma.workspace.delete({ where: { id: workspaceId } });
+}
+
+export async function listMembers(
+  prisma: PrismaClient,
+  workspaceId: string,
+) {
+  return prisma.workspaceMember.findMany({
+    where: { workspaceId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          avatarUrl: true,
+        },
+      },
+    },
+    orderBy: { joinedAt: "asc" },
+  });
+}
+
+export async function updateMemberRole(
+  prisma: PrismaClient,
+  workspaceId: string,
+  targetUserId: string,
+  data: UpdateWorkspaceMemberInput,
+) {
+  return prisma.$transaction(async (tx) => {
+    const member = await tx.workspaceMember.findUnique({
+      where: { userId_workspaceId: { userId: targetUserId, workspaceId } },
+    });
+
+    if (!member) {
+      throw new NotFoundError("Member not found");
+    }
+
+    // Last-admin guard: if demoting from ADMIN, check count
+    if (member.role === "ADMIN" && data.role !== "ADMIN") {
+      const adminCount = await tx.workspaceMember.count({
+        where: { workspaceId, role: "ADMIN" },
+      });
+      if (adminCount <= 1) {
+        throw new ConflictError("Cannot demote the last admin");
+      }
+    }
+
+    return tx.workspaceMember.update({
+      where: { id: member.id },
+      data: { role: data.role },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+  }, { isolationLevel: "Serializable" });
+}
+
+export async function removeMember(
+  prisma: PrismaClient,
+  workspaceId: string,
+  targetUserId: string,
+  actorId: string,
+  actorRole: string,
+) {
+  const isSelf = targetUserId === actorId;
+
+  if (!isSelf && actorRole !== "ADMIN") {
+    throw new ForbiddenError("Only admins can remove other members");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const member = await tx.workspaceMember.findUnique({
+      where: { userId_workspaceId: { userId: targetUserId, workspaceId } },
+    });
+
+    if (!member) {
+      throw new NotFoundError("Member not found");
+    }
+
+    // Last-admin guard
+    if (member.role === "ADMIN") {
+      const adminCount = await tx.workspaceMember.count({
+        where: { workspaceId, role: "ADMIN" },
+      });
+      if (adminCount <= 1) {
+        throw new ConflictError("Cannot remove the last admin");
+      }
+    }
+
+    await tx.workspaceMember.delete({ where: { id: member.id } });
+  }, { isolationLevel: "Serializable" });
+}
+
+export async function getDashboard(
+  prisma: PrismaClient,
+  workspaceId: string,
+  userId: string,
+  role: string,
+) {
+  // Admins see all projects; members/viewers see only their ProjectMember projects
+  const projectWhere: Prisma.ProjectWhereInput = {
+    workspaceId,
+  };
+
+  if (role !== "ADMIN") {
+    projectWhere.members = { some: { userId } };
+  }
+
+  const projects = await prisma.project.findMany({
+    where: projectWhere,
+    select: {
+      id: true,
+      name: true,
+      color: true,
+      archived: true,
+      tasks: {
+        where: { archived: false },
+        select: {
+          id: true,
+          dueDate: true,
+          status: { select: { isCompletion: true } },
+        },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const data = projects.map((project) => {
+    const totalTasks = project.tasks.length;
+    const completedTasks = project.tasks.filter(
+      (t) => t.status.isCompletion,
+    ).length;
+    const overdueTasks = project.tasks.filter(
+      (t) =>
+        t.dueDate &&
+        t.dueDate < today &&
+        !t.status.isCompletion,
+    ).length;
+
+    return {
+      id: project.id,
+      name: project.name,
+      color: project.color,
+      archived: project.archived,
+      totalTasks,
+      completedTasks,
+      overdueTasks,
+    };
+  });
+
+  return { data };
+}
+
+export async function getMyTasks(
+  prisma: PrismaClient,
+  workspaceId: string,
+  userId: string,
+  role: string,
+) {
+  const projectWhere: Prisma.ProjectWhereInput = {
+    workspaceId,
+    archived: false,
+  };
+
+  if (role !== "ADMIN") {
+    projectWhere.members = { some: { userId } };
+  }
+
+  const tasks = await prisma.task.findMany({
+    where: {
+      archived: false,
+      assignees: { some: { userId } },
+      project: projectWhere,
+    },
+    include: {
+      project: { select: { id: true, name: true, color: true } },
+      status: true,
+      labels: { include: { label: true } },
+      assignees: {
+        include: {
+          user: {
+            select: { id: true, displayName: true, avatarUrl: true },
+          },
+        },
+      },
+    },
+    orderBy: [{ project: { name: "asc" } }, { position: "asc" }],
+  });
+
+  return { data: tasks };
+}
+
+export async function searchTasks(
+  prisma: PrismaClient,
+  workspaceId: string,
+  userId: string,
+  role: string,
+  query: string,
+  limit: number,
+) {
+  const projectWhere: Prisma.ProjectWhereInput = {
+    workspaceId,
+    archived: false,
+  };
+
+  if (role !== "ADMIN") {
+    projectWhere.members = { some: { userId } };
+  }
+
+  // Search title matches first, then description matches
+  const titleMatches = await prisma.task.findMany({
+    where: {
+      archived: false,
+      project: projectWhere,
+      title: { contains: query, mode: "insensitive" },
+    },
+    include: {
+      project: { select: { id: true, name: true, color: true } },
+      status: true,
+      labels: { include: { label: true } },
+      assignees: {
+        include: {
+          user: {
+            select: { id: true, displayName: true, avatarUrl: true },
+          },
+        },
+      },
+    },
+    take: limit,
+    orderBy: { updatedAt: "desc" },
+  });
+
+  const remaining = limit - titleMatches.length;
+  let descriptionMatches: typeof titleMatches = [];
+
+  if (remaining > 0) {
+    const titleIds = titleMatches.map((t) => t.id);
+    descriptionMatches = await prisma.task.findMany({
+      where: {
+        archived: false,
+        project: projectWhere,
+        id: { notIn: titleIds },
+        description: { contains: query, mode: "insensitive" },
+      },
+      include: {
+        project: { select: { id: true, name: true, color: true } },
+        status: true,
+        labels: { include: { label: true } },
+        assignees: {
+          include: {
+            user: {
+              select: { id: true, displayName: true, avatarUrl: true },
+            },
+          },
+        },
+      },
+      take: remaining,
+      orderBy: { updatedAt: "desc" },
+    });
+  }
+
+  return { data: [...titleMatches, ...descriptionMatches] };
+}
+
+export async function getWorkspaceSettings(
+  prisma: PrismaClient,
+  workspaceId: string,
+) {
+  return prisma.workspaceSettings.upsert({
+    where: { workspaceId },
+    create: { workspaceId },
+    update: {},
+  });
+}
+
+export async function updateWorkspaceSettings(
+  prisma: PrismaClient,
+  workspaceId: string,
+  data: UpdateWorkspaceSettingsInput,
+) {
+  return prisma.workspaceSettings.upsert({
+    where: { workspaceId },
+    create: {
+      workspaceId,
+      ...data,
+    },
+    update: data,
+  });
+}
+
+export async function searchWikiPages(
+  prisma: PrismaClient,
+  workspaceId: string,
+  query: string,
+  limit: number,
+) {
+  return prisma.wikiPage.findMany({
+    where: {
+      space: { workspaceId },
+      title: { contains: query, mode: "insensitive" },
+    },
+    select: {
+      id: true,
+      title: true,
+      icon: true,
+      spaceId: true,
+      updatedAt: true,
+      space: { select: { id: true, name: true, icon: true } },
+    },
+    take: limit,
+    orderBy: { updatedAt: "desc" },
+  });
+}

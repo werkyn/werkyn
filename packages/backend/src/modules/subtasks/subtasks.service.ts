@@ -1,0 +1,180 @@
+import type { PrismaClient } from "@prisma/client";
+import type { CreateSubtaskInput, UpdateSubtaskInput } from "@pm/shared";
+import { NotFoundError, ValidationError } from "../../utils/errors.js";
+import { logActivity } from "../../utils/activity-log.js";
+
+export async function listSubtasks(prisma: PrismaClient, taskId: string) {
+  return prisma.subtask.findMany({
+    where: { taskId },
+    orderBy: { position: "asc" },
+    include: {
+      assignee: {
+        select: { id: true, displayName: true, avatarUrl: true },
+      },
+    },
+  });
+}
+
+export async function createSubtask(
+  prisma: PrismaClient,
+  taskId: string,
+  actorId: string,
+  data: CreateSubtaskInput,
+) {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { id: true, projectId: true },
+  });
+  if (!task) throw new NotFoundError("Task not found");
+
+  const maxPos = await prisma.subtask.aggregate({
+    where: { taskId },
+    _max: { position: true },
+  });
+  const position = (maxPos._max.position ?? -1) + 1;
+
+  const subtask = await prisma.subtask.create({
+    data: {
+      taskId,
+      title: data.title,
+      assigneeId: data.assigneeId,
+      dueDate: data.dueDate,
+      position,
+    },
+    include: {
+      assignee: {
+        select: { id: true, displayName: true, avatarUrl: true },
+      },
+    },
+  });
+
+  await logActivity(prisma, {
+    taskId,
+    actorId,
+    action: "subtask_added",
+    details: { subtaskId: subtask.id, title: subtask.title },
+  });
+
+  return { subtask, projectId: task.projectId };
+}
+
+export async function updateSubtask(
+  prisma: PrismaClient,
+  subtaskId: string,
+  actorId: string,
+  data: UpdateSubtaskInput,
+) {
+  const existing = await prisma.subtask.findUnique({
+    where: { id: subtaskId },
+    include: { task: { select: { projectId: true } } },
+  });
+  if (!existing) throw new NotFoundError("Subtask not found");
+
+  const subtask = await prisma.subtask.update({
+    where: { id: subtaskId },
+    data,
+    include: {
+      assignee: {
+        select: { id: true, displayName: true, avatarUrl: true },
+      },
+    },
+  });
+
+  await logActivity(prisma, {
+    taskId: existing.taskId,
+    actorId,
+    action: "subtask_edited",
+    details: { subtaskId, title: subtask.title },
+  });
+
+  return { subtask, projectId: existing.task.projectId };
+}
+
+export async function toggleSubtask(
+  prisma: PrismaClient,
+  subtaskId: string,
+  actorId: string,
+) {
+  const existing = await prisma.subtask.findUnique({
+    where: { id: subtaskId },
+    include: { task: { select: { projectId: true } } },
+  });
+  if (!existing) throw new NotFoundError("Subtask not found");
+
+  const subtask = await prisma.subtask.update({
+    where: { id: subtaskId },
+    data: { completed: !existing.completed },
+    include: {
+      assignee: {
+        select: { id: true, displayName: true, avatarUrl: true },
+      },
+    },
+  });
+
+  await logActivity(prisma, {
+    taskId: existing.taskId,
+    actorId,
+    action: "subtask_toggled",
+    details: { subtaskId, completed: subtask.completed, title: subtask.title },
+  });
+
+  return { subtask, projectId: existing.task.projectId };
+}
+
+export async function reorderSubtasks(
+  prisma: PrismaClient,
+  taskId: string,
+  orderedIds: string[],
+) {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { id: true, projectId: true },
+  });
+  if (!task) throw new NotFoundError("Task not found");
+
+  // Validate all IDs belong to this task
+  const subtasks = await prisma.subtask.findMany({
+    where: { taskId },
+    select: { id: true },
+  });
+  const validIds = new Set(subtasks.map((s) => s.id));
+  for (const id of orderedIds) {
+    if (!validIds.has(id)) {
+      throw new ValidationError(`Subtask ${id} does not belong to this task`);
+    }
+  }
+
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.subtask.update({
+        where: { id },
+        data: { position: index },
+      }),
+    ),
+  );
+
+  return task.projectId;
+}
+
+export async function deleteSubtask(
+  prisma: PrismaClient,
+  subtaskId: string,
+  actorId: string,
+) {
+  const existing = await prisma.subtask.findUnique({
+    where: { id: subtaskId },
+    include: { task: { select: { projectId: true } } },
+  });
+  if (!existing) throw new NotFoundError("Subtask not found");
+
+  await prisma.subtask.delete({ where: { id: subtaskId } });
+
+  await logActivity(prisma, {
+    taskId: existing.taskId,
+    actorId,
+    action: "subtask_deleted",
+    details: { subtaskId, title: existing.title },
+  });
+
+  return { taskId: existing.taskId, projectId: existing.task.projectId };
+}
