@@ -1,0 +1,21 @@
+{
+  "name": "project-management-app",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @pm/backend dev & pnpm --filter @pm/frontend dev",
+    "build": "pnpm --filter @pm/shared build && pnpm --filter @pm/backend build && pnpm --filter @pm/frontend build",
+    "lint": "pnpm --filter \"./packages/*\" lint",
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"packages/*/src/**/*.{ts,tsx}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

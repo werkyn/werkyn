@@ -1,0 +1,308 @@
+import type { PrismaClient } from "@prisma/client";
+import type {
+  CreateTeamFolderInput,
+  UpdateTeamFolderInput,
+} from "@pm/shared";
+import { ForbiddenError, NotFoundError } from "../../utils/errors.js";
+
+export async function hasTeamFolderAccess(
+  prisma: PrismaClient,
+  teamFolderId: string,
+  userId: string,
+): Promise<boolean> {
+  const directMember = await prisma.teamFolderMember.findUnique({
+    where: { teamFolderId_userId: { teamFolderId, userId } },
+  });
+  if (directMember) return true;
+
+  const groupAccess = await prisma.teamFolderGroup.findFirst({
+    where: {
+      teamFolderId,
+      group: { members: { some: { userId } } },
+    },
+  });
+  return !!groupAccess;
+}
+
+export async function createTeamFolder(
+  prisma: PrismaClient,
+  workspaceId: string,
+  createdById: string,
+  input: CreateTeamFolderInput,
+) {
+  return prisma.$transaction(async (tx) => {
+    // Create the root folder (no ownerId, no teamFolderId for the root itself)
+    const folder = await tx.file.create({
+      data: {
+        workspaceId,
+        name: input.name,
+        isFolder: true,
+        uploadedById: createdById,
+        ownerId: null,
+        teamFolderId: null,
+      },
+    });
+
+    // Create the TeamFolder record
+    const teamFolder = await tx.teamFolder.create({
+      data: {
+        workspaceId,
+        folderId: folder.id,
+        name: input.name,
+        description: input.description ?? null,
+      },
+    });
+
+    // Add members if provided
+    if (input.memberIds && input.memberIds.length > 0) {
+      // Validate all users are workspace members
+      const members = await tx.workspaceMember.findMany({
+        where: {
+          workspaceId,
+          userId: { in: input.memberIds },
+        },
+        select: { userId: true },
+      });
+      const validUserIds = new Set(members.map((m) => m.userId));
+
+      await tx.teamFolderMember.createMany({
+        data: input.memberIds
+          .filter((uid) => validUserIds.has(uid))
+          .map((userId) => ({
+            teamFolderId: teamFolder.id,
+            userId,
+          })),
+      });
+    }
+
+    return {
+      ...teamFolder,
+      folder,
+      _count: { members: input.memberIds?.length ?? 0 },
+    };
+  });
+}
+
+export async function listTeamFolders(
+  prisma: PrismaClient,
+  workspaceId: string,
+  userId: string,
+  workspaceRole: string,
+) {
+  const where: Record<string, unknown> = { workspaceId };
+
+  // Non-admins only see team folders they're members of (direct or via group)
+  if (workspaceRole !== "ADMIN") {
+    where.OR = [
+      { members: { some: { userId } } },
+      { groups: { some: { group: { members: { some: { userId } } } } } },
+    ];
+  }
+
+  return prisma.teamFolder.findMany({
+    where,
+    include: {
+      folder: {
+        select: { id: true, name: true },
+      },
+      _count: { select: { members: true } },
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function getTeamFolder(
+  prisma: PrismaClient,
+  workspaceId: string,
+  teamFolderId: string,
+  userId: string,
+  workspaceRole: string,
+) {
+  const teamFolder = await prisma.teamFolder.findFirst({
+    where: { id: teamFolderId, workspaceId },
+    include: {
+      folder: { select: { id: true, name: true } },
+      members: {
+        include: {
+          user: {
+            select: { id: true, displayName: true, email: true, avatarUrl: true },
+          },
+        },
+        orderBy: { addedAt: "asc" },
+      },
+      groups: {
+        include: {
+          group: {
+            select: { id: true, name: true, color: true, _count: { select: { members: true } } },
+          },
+        },
+      },
+      _count: { select: { members: true } },
+    },
+  });
+
+  if (!teamFolder) throw new NotFoundError("Team folder not found");
+
+  // Non-admins must be a direct member or in a group
+  if (workspaceRole !== "ADMIN") {
+    const hasAccess = await hasTeamFolderAccess(prisma, teamFolderId, userId);
+    if (!hasAccess) throw new ForbiddenError("You do not have access to this team folder");
+  }
+
+  return teamFolder;
+}
+
+export async function updateTeamFolder(
+  prisma: PrismaClient,
+  workspaceId: string,
+  teamFolderId: string,
+  input: UpdateTeamFolderInput,
+) {
+  const teamFolder = await prisma.teamFolder.findFirst({
+    where: { id: teamFolderId, workspaceId },
+  });
+  if (!teamFolder) throw new NotFoundError("Team folder not found");
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.teamFolder.update({
+      where: { id: teamFolderId },
+      data: {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.description !== undefined
+          ? { description: input.description }
+          : {}),
+      },
+      include: {
+        folder: { select: { id: true, name: true } },
+        _count: { select: { members: true } },
+      },
+    });
+
+    // Sync root folder name
+    if (input.name !== undefined) {
+      await tx.file.update({
+        where: { id: teamFolder.folderId },
+        data: { name: input.name },
+      });
+    }
+
+    return updated;
+  });
+}
+
+export async function deleteTeamFolder(
+  prisma: PrismaClient,
+  workspaceId: string,
+  teamFolderId: string,
+) {
+  const teamFolder = await prisma.teamFolder.findFirst({
+    where: { id: teamFolderId, workspaceId },
+  });
+  if (!teamFolder) throw new NotFoundError("Team folder not found");
+
+  // Deleting the root File cascades children; deleting TeamFolder cascades members
+  // Delete TeamFolder first (FK from File.teamFolderId is SET NULL), then delete root file
+  await prisma.$transaction(async (tx) => {
+    // Null out teamFolderId on children so cascade doesn't fail
+    await tx.file.updateMany({
+      where: { teamFolderId },
+      data: { teamFolderId: null },
+    });
+
+    await tx.teamFolder.delete({ where: { id: teamFolderId } });
+
+    // Now delete the root folder (cascades File children)
+    await tx.file.delete({ where: { id: teamFolder.folderId } });
+  });
+}
+
+export async function addMember(
+  prisma: PrismaClient,
+  workspaceId: string,
+  teamFolderId: string,
+  userId: string,
+) {
+  const teamFolder = await prisma.teamFolder.findFirst({
+    where: { id: teamFolderId, workspaceId },
+  });
+  if (!teamFolder) throw new NotFoundError("Team folder not found");
+
+  // Validate user is workspace member
+  const wsMember = await prisma.workspaceMember.findUnique({
+    where: { userId_workspaceId: { userId, workspaceId } },
+  });
+  if (!wsMember) throw new NotFoundError("User is not a workspace member");
+
+  return prisma.teamFolderMember.create({
+    data: { teamFolderId, userId },
+    include: {
+      user: {
+        select: { id: true, displayName: true, email: true, avatarUrl: true },
+      },
+    },
+  });
+}
+
+export async function removeMember(
+  prisma: PrismaClient,
+  workspaceId: string,
+  teamFolderId: string,
+  userId: string,
+) {
+  const teamFolder = await prisma.teamFolder.findFirst({
+    where: { id: teamFolderId, workspaceId },
+  });
+  if (!teamFolder) throw new NotFoundError("Team folder not found");
+
+  const member = await prisma.teamFolderMember.findUnique({
+    where: { teamFolderId_userId: { teamFolderId, userId } },
+  });
+  if (!member) throw new NotFoundError("Member not found");
+
+  await prisma.teamFolderMember.delete({ where: { id: member.id } });
+}
+
+export async function addGroupToTeamFolder(
+  prisma: PrismaClient,
+  workspaceId: string,
+  teamFolderId: string,
+  groupId: string,
+) {
+  const teamFolder = await prisma.teamFolder.findFirst({
+    where: { id: teamFolderId, workspaceId },
+  });
+  if (!teamFolder) throw new NotFoundError("Team folder not found");
+
+  const group = await prisma.group.findFirst({
+    where: { id: groupId, workspaceId },
+  });
+  if (!group) throw new NotFoundError("Group not found");
+
+  return prisma.teamFolderGroup.create({
+    data: { teamFolderId, groupId },
+    include: {
+      group: {
+        select: { id: true, name: true, color: true, _count: { select: { members: true } } },
+      },
+    },
+  });
+}
+
+export async function removeGroupFromTeamFolder(
+  prisma: PrismaClient,
+  workspaceId: string,
+  teamFolderId: string,
+  groupId: string,
+) {
+  const teamFolder = await prisma.teamFolder.findFirst({
+    where: { id: teamFolderId, workspaceId },
+  });
+  if (!teamFolder) throw new NotFoundError("Team folder not found");
+
+  const tfGroup = await prisma.teamFolderGroup.findUnique({
+    where: { teamFolderId_groupId: { teamFolderId, groupId } },
+  });
+  if (!tfGroup) throw new NotFoundError("Group assignment not found");
+
+  await prisma.teamFolderGroup.delete({ where: { id: tfGroup.id } });
+}

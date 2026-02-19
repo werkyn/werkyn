@@ -1,0 +1,850 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users & Auth ────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique @db.VarChar(255)
+  passwordHash  String
+  displayName   String   @db.VarChar(100)
+  avatarUrl     String?
+  jobTitle      String?  @db.VarChar(100)
+  phone         String?  @db.VarChar(30)
+  timezone      String?  @db.VarChar(50)
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspaces              WorkspaceMember[]
+  projectMemberships      ProjectMember[]
+  taskAssignments         TaskAssignee[]
+  subtaskAssignments      Subtask[]
+  comments                Comment[]
+  refreshTokens           RefreshToken[]
+  activityLogs            ActivityLog[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  notifications           Notification[]
+  notificationPreference  NotificationPreference?
+  remindersSent           TaskReminderSent[]
+  files                   File[]       @relation("UploadedFiles")
+  ownedFiles              File[]       @relation("OwnedFiles")
+  attachments             Attachment[] @relation("UploadedAttachments")
+  teamFolderMemberships   TeamFolderMember[]
+  groupMemberships        GroupMember[]
+  wikiPagesCreated        WikiPage[]       @relation("WikiPageCreatedBy")
+  wikiPagesEdited         WikiPage[]       @relation("WikiPageEditedBy")
+  wikiVersionsCreated     WikiPageVersion[]
+  wikiPageLocks           WikiPageLock[]
+  wikiPageComments        WikiPageComment[]   @relation("WikiCommentAuthor")
+  wikiPageCommentsResolved WikiPageComment[]  @relation("WikiCommentResolver")
+  timeEntries             TimeEntry[]
+  userRates               UserRate[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  familyId  String
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model RotatedRefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  familyId  String
+  rotatedAt DateTime @default(now())
+
+  @@index([familyId])
+  @@index([rotatedAt])
+}
+
+model LoginAttempt {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  failedCount  Int       @default(0)
+  lastFailedAt DateTime?
+  lockedUntil  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([email])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+// ─── Workspaces ──────────────────────────────────────────
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(100)
+  slug      String   @unique @db.VarChar(50)
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members     WorkspaceMember[]
+  projects    Project[]
+  invites     WorkspaceInvite[]
+  files       File[]
+  attachments Attachment[]
+  teamFolders TeamFolder[]
+  groups      Group[]
+  settings    WorkspaceSettings?
+  wikiSpaces  WikiSpace[]
+  timeEntries TimeEntry[]
+  userRates   UserRate[]
+}
+
+enum WorkspaceRole {
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        WorkspaceRole @default(MEMBER)
+  joinedAt    DateTime      @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+model WorkspaceInvite {
+  id          String        @id @default(cuid())
+  workspaceId String
+  email       String?
+  role        WorkspaceRole @default(MEMBER)
+  token       String        @unique
+  expiresAt   DateTime?
+  maxUses     Int?
+  useCount    Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([token])
+}
+
+// ─── Projects ────────────────────────────────────────────
+
+model Project {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String   @db.VarChar(255)
+  description String?
+  color       String?  @default("#6366f1")
+  icon        String?
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace        Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members          ProjectMember[]
+  statuses         StatusColumn[]
+  tasks            Task[]
+  labels           Label[]
+  customFields     CustomField[]
+  templates        TaskTemplate[]
+  recurringConfigs RecurringTaskConfig[]
+  timeEntries      TimeEntry[]
+
+  @@index([workspaceId])
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  addedAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+// ─── Status Columns ──────────────────────────────────────
+
+model StatusColumn {
+  id           String  @id @default(cuid())
+  projectId    String
+  name         String  @db.VarChar(100)
+  color        String? @default("#94a3b8")
+  position     Int     @default(0)
+  isCompletion Boolean @default(false)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([projectId])
+}
+
+// ─── Labels ──────────────────────────────────────────────
+
+model Label {
+  id        String @id @default(cuid())
+  projectId String
+  name      String @db.VarChar(100)
+  color     String @default("#6366f1")
+
+  project Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   TaskLabel[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// ─── Custom Fields ──────────────────────────────────────
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+  MULTI_SELECT
+  CHECKBOX
+  URL
+}
+
+model CustomField {
+  id        String          @id @default(cuid())
+  projectId String
+  name      String          @db.VarChar(100)
+  type      CustomFieldType
+  options   Json?
+  required  Boolean         @default(false)
+  position  Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  project Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  values  CustomFieldValue[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model CustomFieldValue {
+  id      String @id @default(cuid())
+  taskId  String
+  fieldId String
+  value   Json
+
+  task  Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  field CustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, fieldId])
+  @@index([fieldId])
+  @@index([taskId])
+}
+
+// ─── Tasks ───────────────────────────────────────────────
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  projectId   String
+  statusId    String
+  title       String    @db.VarChar(255)
+  description String?
+  priority    Priority  @default(MEDIUM)
+  position    Int       @default(0)
+  dueDate     String?
+  startDate   String?
+  reminder    String?
+  archived    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status    StatusColumn @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  assignees TaskAssignee[]
+  labels    TaskLabel[]
+  subtasks  Subtask[]
+  customFieldValues CustomFieldValue[]
+
+  blockedBy      TaskDependency[] @relation("BlockedTask")
+  blocking       TaskDependency[] @relation("BlockingTask")
+  comments       Comment[]
+  activities     ActivityLog[]
+  remindersSent  TaskReminderSent[]
+  timeEntries    TimeEntry[]
+
+  @@index([projectId])
+  @@index([statusId])
+  @@index([dueDate])
+  @@index([projectId, archived])
+  @@index([projectId, dueDate])
+  @@index([projectId, startDate])
+}
+
+model TaskAssignee {
+  id     String @id @default(cuid())
+  taskId String
+  userId String
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId, taskId])
+}
+
+model TaskLabel {
+  id      String @id @default(cuid())
+  taskId  String
+  labelId String
+
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, labelId])
+  @@index([labelId])
+}
+
+// ─── Subtasks ────────────────────────────────────────────
+
+model Subtask {
+  id         String   @id @default(cuid())
+  taskId     String
+  title      String   @db.VarChar(255)
+  completed  Boolean  @default(false)
+  position   Int      @default(0)
+  assigneeId String?
+  dueDate    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  task     Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assignee User? @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+}
+
+// ─── Task Dependencies ───────────────────────────────────
+
+model TaskDependency {
+  id             String @id @default(cuid())
+  blockedTaskId  String
+  blockingTaskId String
+
+  blockedTask  Task @relation("BlockedTask", fields: [blockedTaskId], references: [id], onDelete: Cascade)
+  blockingTask Task @relation("BlockingTask", fields: [blockingTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([blockedTaskId, blockingTaskId])
+  @@index([blockingTaskId])
+}
+
+// ─── Activity Log ────────────────────────────────────────
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  taskId    String
+  action    String
+  details   Json?
+  actorId   String?
+  createdAt DateTime @default(now())
+
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([createdAt])
+  @@index([actorId])
+}
+
+// ─── Notifications ──────────────────────────────────────
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_STATUS_CHANGED
+  TASK_DUE_SOON
+  COMMENT_ADDED
+  COMMENT_MENTION
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  body      String?          @db.VarChar(1000)
+  read      Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+model NotificationPreference {
+  id                    String  @id @default(cuid())
+  userId                String  @unique
+  taskAssigned          Boolean @default(true)
+  taskStatusChanged     Boolean @default(true)
+  taskDueSoon           Boolean @default(true)
+  commentAdded          Boolean @default(true)
+  commentMention        Boolean @default(true)
+  dueDateReminderTiming String  @default("1_day_before")
+  pushSubscription      Json?
+  pushEnabled           Boolean @default(false)
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Comments ────────────────────────────────────────────
+
+model Comment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String?
+  body      String   @db.VarChar(10000)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task   Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([authorId])
+  @@index([taskId, createdAt])
+}
+
+// ─── Task Reminder Tracking ─────────────────────────────
+
+model TaskReminderSent {
+  id      String   @id @default(cuid())
+  taskId  String
+  userId  String
+  dueDate String
+  sentAt  DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId, dueDate])
+  @@index([sentAt])
+}
+
+// ─── Task Templates ─────────────────────────────────────
+
+model TaskTemplate {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String   @db.VarChar(255)
+  title       String   @db.VarChar(255)
+  description String?
+  priority    Priority @default(MEDIUM)
+  statusId    String?
+  dueOffset   Int?
+  assigneeIds Json     @default("[]")
+  labelIds    Json     @default("[]")
+  subtasks    Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project          Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recurringConfigs RecurringTaskConfig[]
+  @@index([projectId])
+}
+
+// ─── Recurring Tasks ────────────────────────────────────
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+model RecurringTaskConfig {
+  id          String              @id @default(cuid())
+  projectId   String
+  templateId  String
+  frequency   RecurrenceFrequency
+  dayOfWeek   Int?
+  dayOfMonth  Int?
+  startDate   String
+  endDate     String?
+  nextRunDate String
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  project  Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  template TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  @@index([projectId])
+  @@index([isActive, nextRunDate])
+}
+
+// ─── Files (Drive) ─────────────────────────────────────
+
+model File {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  parentId     String?
+  name         String    @db.VarChar(255)
+  mimeType     String?
+  size         BigInt?
+  storagePath  String?
+  isFolder     Boolean   @default(false)
+  uploadedById String
+  ownerId      String?
+  teamFolderId String?
+  trashedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent      File?       @relation("FileParent", fields: [parentId], references: [id], onDelete: Cascade)
+  children    File[]      @relation("FileParent")
+  uploadedBy  User        @relation("UploadedFiles", fields: [uploadedById], references: [id], onDelete: Cascade)
+  owner       User?       @relation("OwnedFiles", fields: [ownerId], references: [id], onDelete: SetNull)
+  teamFolder  TeamFolder? @relation("TeamFolderFiles", fields: [teamFolderId], references: [id], onDelete: SetNull)
+  asTeamFolder TeamFolder? @relation("TeamFolderRoot")
+  attachments Attachment[]
+
+  @@index([workspaceId, parentId])
+  @@index([workspaceId, trashedAt])
+  @@index([uploadedById])
+  @@index([ownerId])
+  @@index([teamFolderId])
+}
+
+// ─── Attachments ───────────────────────────────────────
+
+model Attachment {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  entityType   String   @db.VarChar(50)
+  entityId     String
+  name         String   @db.VarChar(255)
+  mimeType     String
+  size         BigInt    @default(0)
+  storagePath  String
+  uploadedById String
+  fileId       String?
+  createdAt    DateTime @default(now())
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uploadedBy User      @relation("UploadedAttachments", fields: [uploadedById], references: [id], onDelete: Cascade)
+  file       File?     @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([workspaceId])
+  @@index([uploadedById])
+  @@index([fileId])
+}
+
+// ─── Team Folders ─────────────────────────────────────
+
+model TeamFolder {
+  id          String   @id @default(cuid())
+  workspaceId String
+  folderId    String   @unique
+  name        String   @db.VarChar(255)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  folder    File               @relation("TeamFolderRoot", fields: [folderId], references: [id], onDelete: Cascade)
+  members   TeamFolderMember[]
+  groups    TeamFolderGroup[]
+  files     File[]             @relation("TeamFolderFiles")
+
+  @@index([workspaceId])
+}
+
+model TeamFolderMember {
+  id           String   @id @default(cuid())
+  teamFolderId String
+  userId       String
+  addedAt      DateTime @default(now())
+
+  teamFolder TeamFolder @relation(fields: [teamFolderId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamFolderId, userId])
+  @@index([userId])
+  @@index([teamFolderId])
+}
+
+// ─── Groups ─────────────────────────────────────────────
+
+model Group {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String   @db.VarChar(100)
+  description String?
+  color       String?  @default("#6366f1")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members          GroupMember[]
+  teamFolderGroups TeamFolderGroup[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model GroupMember {
+  id      String   @id @default(cuid())
+  groupId String
+  userId  String
+  addedAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+  @@index([groupId])
+}
+
+model TeamFolderGroup {
+  id           String   @id @default(cuid())
+  teamFolderId String
+  groupId      String
+  addedAt      DateTime @default(now())
+
+  teamFolder TeamFolder @relation(fields: [teamFolderId], references: [id], onDelete: Cascade)
+  group      Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([teamFolderId, groupId])
+  @@index([groupId])
+  @@index([teamFolderId])
+}
+
+// ─── Workspace Settings ─────────────────────────────────
+
+model WorkspaceSettings {
+  id                   String        @id @default(cuid())
+  workspaceId          String        @unique
+  defaultRole          WorkspaceRole @default(MEMBER)
+  invitesEnabled       Boolean       @default(true)
+  requireAdminApproval Boolean       @default(false)
+  allowedEmailDomains  String[]      @default([])
+  maxMembers           Int?
+  enabledModules       String[]      @default(["drive", "wiki", "time"])
+  updatedAt            DateTime      @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// ─── Wiki / Knowledge Base ──────────────────────────────
+
+model WikiSpace {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String   @db.VarChar(100)
+  slug        String   @db.VarChar(100)
+  description String?
+  icon        String?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  pages     WikiPage[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, position])
+}
+
+model WikiPage {
+  id             String   @id @default(cuid())
+  spaceId        String
+  parentId       String?
+  title          String   @db.VarChar(500)
+  content        Json?
+  icon           String?
+  position       Int      @default(0)
+  createdById    String
+  lastEditedById String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  space        WikiSpace  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  parent       WikiPage?  @relation("WikiPageParent", fields: [parentId], references: [id], onDelete: Cascade)
+  children     WikiPage[] @relation("WikiPageParent")
+  createdBy    User       @relation("WikiPageCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  lastEditedBy User?      @relation("WikiPageEditedBy", fields: [lastEditedById], references: [id], onDelete: SetNull)
+  versions     WikiPageVersion[]
+  lock         WikiPageLock?
+  comments     WikiPageComment[]
+  share        WikiPageShare?
+
+  @@index([spaceId, parentId, position])
+  @@index([createdById])
+}
+
+model WikiPageVersion {
+  id            String   @id @default(cuid())
+  pageId        String
+  title         String   @db.VarChar(500)
+  content       Json?
+  versionNumber Int
+  name          String?  @db.VarChar(255)
+  isAutoSave    Boolean  @default(true)
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  page      WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  createdBy User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([pageId, createdAt])
+}
+
+model WikiPageLock {
+  id        String   @id @default(cuid())
+  pageId    String   @unique
+  userId    String
+  lockedAt  DateTime @default(now())
+  expiresAt DateTime
+  heartbeat DateTime @default(now())
+
+  page WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model WikiPageComment {
+  id             String    @id @default(cuid())
+  pageId         String
+  authorId       String
+  body           String    @db.VarChar(10000)
+  resolved       Boolean   @default(false)
+  resolvedById   String?
+  resolvedAt     DateTime?
+  highlightId    String    @db.VarChar(100)
+  selectionStart Json?
+  selectionEnd   Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  page       WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  author     User     @relation("WikiCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  resolvedBy User?    @relation("WikiCommentResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([pageId, resolved])
+}
+
+model WikiPageShare {
+  id           String   @id @default(cuid())
+  pageId       String   @unique
+  token        String   @unique
+  passwordHash String?
+  enabled      Boolean  @default(true)
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  page WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
+
+// ─── Time Tracking ─────────────────────────────────────
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  taskId      String?
+  projectId   String?
+  date        String   @db.VarChar(10)
+  hours       Float
+  description String?  @db.VarChar(500)
+  billable    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task      Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, userId, date])
+  @@index([workspaceId, date])
+  @@index([workspaceId, projectId])
+  @@index([taskId])
+}
+
+model UserRate {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  userId        String
+  rate          Float
+  currency      String   @default("USD") @db.VarChar(3)
+  effectiveFrom String   @db.VarChar(10)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, effectiveFrom])
+  @@index([workspaceId, userId])
+}

@@ -1,0 +1,16 @@
+export {
+  CreateWikiSpaceSchema,
+  UpdateWikiSpaceSchema,
+  CreateWikiPageSchema,
+  UpdateWikiPageSchema,
+  MoveWikiPageSchema,
+  WikiPageTreeQuerySchema,
+  WikiPageVersionQuerySchema,
+  CreateNamedVersionSchema,
+  CreateWikiCommentSchema,
+  UpdateWikiCommentSchema,
+  WikiCommentQuerySchema,
+  CreateWikiShareSchema,
+  UpdateWikiShareSchema,
+  ValidateWikiShareSchema,
+} from "@pm/shared";
