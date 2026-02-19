@@ -24,4 +24,14 @@ export default fp(async (fastify: FastifyInstance) => {
     prefix: "/uploads/",
     decorateReply: false,
   });
+
+  // Serve frontend static assets in production
+  if (env.NODE_ENV === "production") {
+    const frontendDist = path.resolve(process.cwd(), "packages/frontend/dist");
+    await fastify.register(fastifyStatic, {
+      root: frontendDist,
+      prefix: "/",
+      decorateReply: false,
+    });
+  }
 });

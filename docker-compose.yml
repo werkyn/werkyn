@@ -1,5 +1,30 @@
-# Only for local development, not for production. Production deployment will be available soon.
 services:
+  werkyn:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://user:password@postgres:5432/projectapp
+      JWT_SECRET: change-me-to-a-secure-random-string-at-least-32-chars
+      COOKIE_SECRET: change-me-to-another-secure-random-string
+      COOKIE_SECURE: "false"
+      COOKIE_SAMESITE: lax
+      CORS_ORIGIN: http://localhost:3000
+      FRONTEND_URL: http://localhost:3000
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: "false"
+      SMTP_FROM: noreply@werkyn.local
+      STORAGE_DIR: /app/storage
+    volumes:
+      - werkyn-storage:/app/storage
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -11,16 +36,22 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d projectapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   mailpit:
     image: axllent/mailpit:latest
     restart: unless-stopped
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI
+      - "1025:1025"
+      - "8025:8025"
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
 volumes:
   pgdata:
+  werkyn-storage:
