@@ -1,16 +1,16 @@
+## ⚠️ Notice
+**This project is not ready to run in production.** Please wait for our first release before you attempt to deploy it. Self-hosting instructions and Docker releases will be available soon.
+
+</br>
+</br>
+
 <img width="500" src="https://github.com/user-attachments/assets/1d9af671-7838-45ee-a810-54a30e605c30" />
 
-# Werkyn
-
-Open-source project management and collaboration for teams. **Coming Soon.**
+Open-source project management and collaboration for teams.
 
 ## Our [Live Demo](https://demo.werkyn.com/) is ready!
 
 Open-source project management for teams who self-host. Kanban boards, team workspaces, calendar views, and a command palette, all self-hosted with Docker Compose. No SaaS fees, no vendor lock-in, just your data on your infrastructure.
-
-## Notice
-
-⚠️ **This project is not ready to run in production.** Please wait for our first release before you attempt to deploy it. Self-hosting instructions and Docker releases will be available soon.
 
 ## Features
 
