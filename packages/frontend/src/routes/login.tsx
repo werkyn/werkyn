@@ -32,16 +32,8 @@ function LoginPage() {
               : "Sign in to your account"}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <LoginForm inviteToken={inviteToken} />
-          <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/50 p-3 text-sm">
-            <p className="mb-1 font-medium text-muted-foreground">
-              Demo credentials
-            </p>
-            <p className="font-mono text-xs text-muted-foreground">
-              alice@test.com / password123
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
