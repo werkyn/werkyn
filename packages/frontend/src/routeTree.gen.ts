@@ -21,6 +21,7 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as AuthedWorkspaceSlugRouteImport } from './routes/_authed/$workspaceSlug'
 import { Route as AuthedWorkspaceSlugIndexRouteImport } from './routes/_authed/$workspaceSlug/index'
+import { Route as AuthOidcCompleteRouteImport } from './routes/auth.oidc.complete'
 import { Route as AuthedWorkspaceSlugTimeRouteImport } from './routes/_authed/$workspaceSlug/time'
 import { Route as AuthedWorkspaceSlugSettingsRouteImport } from './routes/_authed/$workspaceSlug/settings'
 import { Route as AuthedWorkspaceSlugMyTasksRouteImport } from './routes/_authed/$workspaceSlug/my-tasks'
@@ -96,6 +97,11 @@ const AuthedWorkspaceSlugIndexRoute =
     path: '/',
     getParentRoute: () => AuthedWorkspaceSlugRoute,
   } as any)
+const AuthOidcCompleteRoute = AuthOidcCompleteRouteImport.update({
+  id: '/auth/oidc/complete',
+  path: '/auth/oidc/complete',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthedWorkspaceSlugTimeRoute = AuthedWorkspaceSlugTimeRouteImport.update({
   id: '/time',
   path: '/time',
@@ -197,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/$workspaceSlug/my-tasks': typeof AuthedWorkspaceSlugMyTasksRoute
   '/$workspaceSlug/settings': typeof AuthedWorkspaceSlugSettingsRoute
   '/$workspaceSlug/time': typeof AuthedWorkspaceSlugTimeRouteWithChildren
+  '/auth/oidc/complete': typeof AuthOidcCompleteRoute
   '/$workspaceSlug/': typeof AuthedWorkspaceSlugIndexRoute
   '/$workspaceSlug/projects/$projectId': typeof AuthedWorkspaceSlugProjectsProjectIdRouteWithChildren
   '/$workspaceSlug/time/reports': typeof AuthedWorkspaceSlugTimeReportsRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/$workspaceSlug/knowledge': typeof AuthedWorkspaceSlugKnowledgeRoute
   '/$workspaceSlug/my-tasks': typeof AuthedWorkspaceSlugMyTasksRoute
   '/$workspaceSlug/settings': typeof AuthedWorkspaceSlugSettingsRoute
+  '/auth/oidc/complete': typeof AuthOidcCompleteRoute
   '/$workspaceSlug': typeof AuthedWorkspaceSlugIndexRoute
   '/$workspaceSlug/projects/$projectId': typeof AuthedWorkspaceSlugProjectsProjectIdRouteWithChildren
   '/$workspaceSlug/time/reports': typeof AuthedWorkspaceSlugTimeReportsRoute
@@ -251,6 +259,7 @@ export interface FileRoutesById {
   '/_authed/$workspaceSlug/my-tasks': typeof AuthedWorkspaceSlugMyTasksRoute
   '/_authed/$workspaceSlug/settings': typeof AuthedWorkspaceSlugSettingsRoute
   '/_authed/$workspaceSlug/time': typeof AuthedWorkspaceSlugTimeRouteWithChildren
+  '/auth/oidc/complete': typeof AuthOidcCompleteRoute
   '/_authed/$workspaceSlug/': typeof AuthedWorkspaceSlugIndexRoute
   '/_authed/$workspaceSlug/projects/$projectId': typeof AuthedWorkspaceSlugProjectsProjectIdRouteWithChildren
   '/_authed/$workspaceSlug/time/reports': typeof AuthedWorkspaceSlugTimeReportsRoute
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/$workspaceSlug/my-tasks'
     | '/$workspaceSlug/settings'
     | '/$workspaceSlug/time'
+    | '/auth/oidc/complete'
     | '/$workspaceSlug/'
     | '/$workspaceSlug/projects/$projectId'
     | '/$workspaceSlug/time/reports'
@@ -305,6 +315,7 @@ export interface FileRouteTypes {
     | '/$workspaceSlug/knowledge'
     | '/$workspaceSlug/my-tasks'
     | '/$workspaceSlug/settings'
+    | '/auth/oidc/complete'
     | '/$workspaceSlug'
     | '/$workspaceSlug/projects/$projectId'
     | '/$workspaceSlug/time/reports'
@@ -333,6 +344,7 @@ export interface FileRouteTypes {
     | '/_authed/$workspaceSlug/my-tasks'
     | '/_authed/$workspaceSlug/settings'
     | '/_authed/$workspaceSlug/time'
+    | '/auth/oidc/complete'
     | '/_authed/$workspaceSlug/'
     | '/_authed/$workspaceSlug/projects/$projectId'
     | '/_authed/$workspaceSlug/time/reports'
@@ -354,6 +366,7 @@ export interface RootRouteChildren {
   ResetPasswordTokenRoute: typeof ResetPasswordTokenRoute
   ShareTokenRoute: typeof ShareTokenRoute
   VerifyEmailTokenRoute: typeof VerifyEmailTokenRoute
+  AuthOidcCompleteRoute: typeof AuthOidcCompleteRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -441,6 +454,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$workspaceSlug/'
       preLoaderRoute: typeof AuthedWorkspaceSlugIndexRouteImport
       parentRoute: typeof AuthedWorkspaceSlugRoute
+    }
+    '/auth/oidc/complete': {
+      id: '/auth/oidc/complete'
+      path: '/auth/oidc/complete'
+      fullPath: '/auth/oidc/complete'
+      preLoaderRoute: typeof AuthOidcCompleteRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authed/$workspaceSlug/time': {
       id: '/_authed/$workspaceSlug/time'
@@ -634,6 +654,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordTokenRoute: ResetPasswordTokenRoute,
   ShareTokenRoute: ShareTokenRoute,
   VerifyEmailTokenRoute: VerifyEmailTokenRoute,
+  AuthOidcCompleteRoute: AuthOidcCompleteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

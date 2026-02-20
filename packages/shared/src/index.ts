@@ -24,6 +24,7 @@ export * from "./schemas/wiki.js";
 export * from "./schemas/group.js";
 export * from "./schemas/workspace-settings.js";
 export * from "./schemas/time-entry.js";
+export * from "./schemas/sso.js";
 
 // Types
 export * from "./types/index.js";

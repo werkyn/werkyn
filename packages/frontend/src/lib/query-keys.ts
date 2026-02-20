@@ -52,4 +52,7 @@ export const queryKeys = {
     ["time-report", { wid, ...filters }] as const,
   userRates: (wid: string) => ["user-rates", { wid }] as const,
   userRate: (wid: string, uid: string) => ["user-rates", { wid, uid }] as const,
+  ssoInfo: ["sso-info"] as const,
+  ssoConfig: ["sso-config"] as const,
+  ssoConnectors: ["sso-connectors"] as const,
 };
