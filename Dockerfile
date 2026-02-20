@@ -2,6 +2,8 @@
 FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat openssl
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
 
 # ── Stage 2: deps ────────────────────────────────────────────────
@@ -43,11 +45,11 @@ COPY packages/frontend/package.json packages/frontend/
 # Copy Prisma schema and migrations (needed for generate + migrate deploy)
 COPY packages/backend/prisma packages/backend/prisma/
 
-# Install production dependencies only (prisma generate won't run without CLI)
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+# Install prisma CLI globally first (pin to v6 to match project schema)
+RUN pnpm add -g prisma@^6.3.1
 
-# Install prisma CLI globally for runtime migrations and generate
-RUN pnpm add -g prisma
+# Install production dependencies (scripts need to run for native addons like bcrypt)
+RUN pnpm install --frozen-lockfile --prod
 
 # Generate Prisma client for linux-musl (Alpine)
 RUN cd packages/backend && prisma generate
@@ -57,8 +59,8 @@ COPY --from=build /app/packages/shared/dist packages/shared/dist/
 COPY --from=build /app/packages/backend/dist packages/backend/dist/
 COPY --from=build /app/packages/frontend/dist packages/frontend/dist/
 
-# Create storage directory
-RUN mkdir -p /app/storage
+# Create storage and legacy directories expected by static plugin
+RUN mkdir -p /app/storage/avatars /app/packages/backend/uploads
 
 # Copy and set up entrypoint
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
