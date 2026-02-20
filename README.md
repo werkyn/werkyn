@@ -61,12 +61,15 @@ This builds the app image, starts PostgreSQL, runs database migrations, and laun
 - **Real-time Updates** - WebSocket-powered live collaboration
 
 ### Wiki & Documentation
+
 <img width="1000" alt="werkyn_wiki" src="https://github.com/user-attachments/assets/c949ec7b-758b-4c3d-844b-ae693eb0370e" />
+
 - **Notion-like Editor** - Rich text editing with BlockNote
 - **Spaces & Pages** - Organized wiki structure
 - **Team Documentation** - Collaborative knowledge base
 
 ### File Management
+
 <img width="1000" alt="werkyn-drive" src="https://github.com/user-attachments/assets/16185112-393a-48d7-97b4-cf5af73360bd" />
 
 - **Personal Files** - Private file storage per user
