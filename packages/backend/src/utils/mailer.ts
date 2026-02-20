@@ -6,18 +6,28 @@ let transporter: nodemailer.Transporter;
 async function getTransporter(): Promise<nodemailer.Transporter> {
   if (transporter) return transporter;
 
-  if (env.SMTP_USER && env.SMTP_PASS) {
-    transporter = nodemailer.createTransport({
+  if (env.SMTP_HOST) {
+    const options: nodemailer.TransportOptions & {
+      host: string;
+      port: number;
+      secure: boolean;
+      auth?: { user: string; pass: string };
+    } = {
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,
       secure: env.SMTP_SECURE,
-      auth: {
+    };
+
+    if (env.SMTP_USER && env.SMTP_PASS) {
+      options.auth = {
         user: env.SMTP_USER,
         pass: env.SMTP_PASS,
-      },
-    });
+      };
+    }
+
+    transporter = nodemailer.createTransport(options);
   } else {
-    // Use Ethereal test account in development
+    // Fallback to Ethereal test account when no SMTP host is configured
     const testAccount = await nodemailer.createTestAccount();
     transporter = nodemailer.createTransport({
       host: testAccount.smtp.host,
