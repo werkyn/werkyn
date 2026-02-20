@@ -1,3 +1,6 @@
+# ── Stage 0: Dex binary source ───────────────────────────────────
+FROM ghcr.io/dexidp/dex:v2.41.1-alpine AS dex-source
+
 # ── Stage 1: base ────────────────────────────────────────────────
 FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat openssl
@@ -58,6 +61,10 @@ RUN cd packages/backend && prisma generate
 COPY --from=build /app/packages/shared/dist packages/shared/dist/
 COPY --from=build /app/packages/backend/dist packages/backend/dist/
 COPY --from=build /app/packages/frontend/dist packages/frontend/dist/
+
+# Copy Dex binary from dex-source stage
+COPY --from=dex-source /usr/local/bin/dex /usr/local/bin/dex
+RUN chmod +x /usr/local/bin/dex && mkdir -p /app/data/dex
 
 # Create storage and legacy directories expected by static plugin
 RUN mkdir -p /app/storage/avatars /app/packages/backend/uploads

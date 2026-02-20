@@ -85,6 +85,16 @@ export async function register(
     inviteToken?: string;
   },
 ) {
+  // SSO enforcement: reject registration if SSO-only mode
+  const ssoConfig = await prisma.ssoConfig.findUnique({
+    where: { id: "singleton" },
+  });
+  if (ssoConfig?.enabled && !ssoConfig.passwordLoginEnabled) {
+    throw new UnauthorizedError(
+      "Password registration is disabled. Please use SSO to sign in.",
+    );
+  }
+
   const existingUser = await prisma.user.findUnique({
     where: { email: data.email.toLowerCase() },
   });
@@ -111,6 +121,15 @@ export async function register(
       phone: true,
       timezone: true,
       emailVerified: true,
+    },
+  });
+
+  // Create password AuthProvider record
+  await prisma.authProvider.create({
+    data: {
+      userId: user.id,
+      provider: "password",
+      email: user.email,
     },
   });
 
@@ -207,7 +226,17 @@ export async function login(
     },
   });
 
-  if (!user || !(await verifyPassword(data.password, user.passwordHash))) {
+  // SSO enforcement: reject password login if SSO-only mode
+  const ssoConfig = await prisma.ssoConfig.findUnique({
+    where: { id: "singleton" },
+  });
+  if (ssoConfig?.enabled && !ssoConfig.passwordLoginEnabled) {
+    throw new UnauthorizedError(
+      "Password login is disabled. Please use SSO to sign in.",
+    );
+  }
+
+  if (!user || !user.passwordHash || !(await verifyPassword(data.password, user.passwordHash))) {
     // Record failed attempt
     const currentAttempt = await prisma.loginAttempt.upsert({
       where: { email },
@@ -506,6 +535,9 @@ export async function cleanupExpiredTokensAndAttempts(prisma: PrismaClient) {
     }),
     prisma.taskReminderSent.deleteMany({
       where: { sentAt: { lt: thirtyDaysAgo } },
+    }),
+    prisma.oidcState.deleteMany({
+      where: { expiresAt: { lt: now } },
     }),
   ]);
 }

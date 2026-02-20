@@ -3,6 +3,7 @@ import { buildApp } from "./app.js";
 import { cleanupExpiredTokensAndAttempts } from "./modules/auth/auth.service.js";
 import { processDueDateReminders } from "./schedulers/due-date-reminders.js";
 import { processRecurringTasks } from "./schedulers/recurring-tasks.js";
+import { dexManager } from "./services/dex-manager.js";
 
 async function start() {
   const app = await buildApp();
@@ -60,6 +61,21 @@ async function start() {
       },
       15 * 60 * 1000,
     );
+
+    // Start embedded Dex (SSO identity provider)
+    dexManager.start(app.prisma, app.log).catch((err) => {
+      app.log.error(err, "Failed to start Dex");
+    });
+
+    // Graceful shutdown
+    const shutdown = async () => {
+      app.log.info("Shutting down...");
+      await dexManager.stop();
+      await app.close();
+      process.exit(0);
+    };
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

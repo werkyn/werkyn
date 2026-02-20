@@ -1,9 +1,10 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 import { router } from "@/lib/router";
 import { toast } from "sonner";
+import { queryKeys } from "@/lib/query-keys";
 
 interface User {
   id: string;
@@ -115,5 +116,29 @@ export function useResendVerification() {
     mutationFn: () => api.post("auth/resend-verification").json(),
     onSuccess: () => toast.success("Verification email sent"),
     onError: () => toast.error("Failed to send verification email"),
+  });
+}
+
+// ─── SSO Info ───
+
+export interface SsoConnectorInfo {
+  connectorId: string;
+  name: string;
+  type: string;
+}
+
+interface SsoInfoResponse {
+  data: {
+    enabled: boolean;
+    passwordLoginEnabled: boolean;
+    connectors: SsoConnectorInfo[];
+  };
+}
+
+export function useSsoInfo() {
+  return useQuery({
+    queryKey: queryKeys.ssoInfo,
+    queryFn: () => api.get("auth/sso-info").json<SsoInfoResponse>(),
+    staleTime: 60_000,
   });
 }

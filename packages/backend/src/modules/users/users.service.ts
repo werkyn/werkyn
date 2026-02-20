@@ -76,6 +76,10 @@ export async function changePassword(
 
   if (!user) throw new NotFoundError("User not found");
 
+  if (!user.passwordHash) {
+    throw new ValidationError("This account uses SSO and has no password set");
+  }
+
   const valid = await verifyPassword(data.currentPassword, user.passwordHash);
   if (!valid) {
     throw new ValidationError("Current password is incorrect");

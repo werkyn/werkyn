@@ -23,8 +23,11 @@ services:
       SMTP_SECURE: "false"
       SMTP_FROM: noreply@werkyn.local
       STORAGE_DIR: /app/storage
+      DEX_STORAGE_TYPE: postgres
+      DEX_CONFIG_DIR: /app/data/dex
     volumes:
       - werkyn-storage:/app/storage
+      - werkyn-dex-data:/app/data/dex
 
   postgres:
     container_name: werkyn-postgres
@@ -58,3 +61,4 @@ services:
 volumes:
   pgdata:
   werkyn-storage:
+  werkyn-dex-data:

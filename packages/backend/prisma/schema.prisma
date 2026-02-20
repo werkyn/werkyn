@@ -12,7 +12,7 @@ datasource db {
 model User {
   id            String   @id @default(cuid())
   email         String   @unique @db.VarChar(255)
-  passwordHash  String
+  passwordHash  String?
   displayName   String   @db.VarChar(100)
   avatarUrl     String?
   jobTitle      String?  @db.VarChar(100)
@@ -47,6 +47,7 @@ model User {
   wikiPageCommentsResolved WikiPageComment[]  @relation("WikiCommentResolver")
   timeEntries             TimeEntry[]
   userRates               UserRate[]
+  authProviders           AuthProvider[]
 }
 
 model RefreshToken {
@@ -110,6 +111,65 @@ model EmailVerificationToken {
 
   @@index([userId])
   @@index([token])
+}
+
+// ─── SSO / OIDC ─────────────────────────────────────────
+
+model AuthProvider {
+  id          String   @id @default(cuid())
+  userId      String
+  provider    String   @db.VarChar(50)
+  providerSub String?  @db.VarChar(255)
+  connectorId String?  @db.VarChar(100)
+  email       String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSub])
+  @@index([userId])
+  @@index([provider, email])
+}
+
+model SsoConfig {
+  id                   String         @id @default("singleton")
+  enabled              Boolean        @default(false)
+  passwordLoginEnabled Boolean        @default(true)
+  autoLinkByEmail      Boolean        @default(true)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  connectors SsoConnector[]
+}
+
+model SsoConnector {
+  id          String   @id @default(cuid())
+  ssoConfigId String   @default("singleton")
+  connectorId String   @unique @db.VarChar(100)
+  name        String   @db.VarChar(100)
+  type        String   @db.VarChar(50)
+  config      Json
+  enabled     Boolean  @default(true)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ssoConfig SsoConfig @relation(fields: [ssoConfigId], references: [id], onDelete: Cascade)
+
+  @@index([ssoConfigId])
+}
+
+model OidcState {
+  id           String   @id @default(cuid())
+  state        String   @unique
+  codeVerifier String
+  nonce        String
+  returnUrl    String?  @db.VarChar(500)
+  connectorId  String?  @db.VarChar(100)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 // ─── Workspaces ──────────────────────────────────────────

@@ -9,6 +9,7 @@ import {
   verifyEmailHandler,
   resendVerificationHandler,
 } from "./auth.controller.js";
+import oidcRoutes from "./oidc/oidc.routes.js";
 import { validate } from "../../middleware/validate.js";
 import { authenticate } from "../../middleware/authenticate.js";
 import {
@@ -19,6 +20,44 @@ import {
 } from "@pm/shared";
 
 export default async function authRoutes(fastify: FastifyInstance) {
+  // OIDC sub-routes
+  await fastify.register(oidcRoutes, { prefix: "/oidc" });
+
+  // GET /api/auth/sso-info (public)
+  fastify.route({
+    method: "GET",
+    url: "/sso-info",
+    handler: async (request) => {
+      const config = await request.server.prisma.ssoConfig.findUnique({
+        where: { id: "singleton" },
+        include: {
+          connectors: {
+            where: { enabled: true },
+            orderBy: { position: "asc" },
+            select: { connectorId: true, name: true, type: true },
+          },
+        },
+      });
+
+      if (!config || !config.enabled) {
+        return {
+          data: {
+            enabled: false,
+            passwordLoginEnabled: true,
+            connectors: [],
+          },
+        };
+      }
+
+      return {
+        data: {
+          enabled: config.enabled,
+          passwordLoginEnabled: config.passwordLoginEnabled,
+          connectors: config.connectors,
+        },
+      };
+    },
+  });
   // POST /api/auth/register
   fastify.route({
     method: "POST",

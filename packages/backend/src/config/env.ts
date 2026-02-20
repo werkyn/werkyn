@@ -37,6 +37,12 @@ const envSchema = z.object({
 
   STORAGE_DIR: z.string().default("./storage"),
   MAX_FILE_SIZE: z.coerce.number().default(10737418240), // 10GB
+
+  // Dex (embedded OIDC identity provider)
+  DEX_BINARY_PATH: z.string().default("/usr/local/bin/dex"),
+  DEX_CONFIG_DIR: z.string().default("/app/data/dex"),
+  DEX_INTERNAL_PORT: z.coerce.number().default(5556),
+  DEX_STORAGE_TYPE: z.enum(["sqlite3", "postgres"]).default("sqlite3"),
 });
 
 const parsed = envSchema.safeParse(process.env);

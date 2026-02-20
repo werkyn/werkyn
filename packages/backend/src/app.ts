@@ -17,6 +17,7 @@ import staticPlugin from "./plugins/static.js";
 import websocketPlugin from "./plugins/websocket.js";
 import multipartPlugin from "./plugins/multipart.js";
 import storagePlugin from "./plugins/storage.js";
+import dexProxyPlugin from "./plugins/dex-proxy.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import usersRoutes from "./modules/users/users.routes.js";
 import workspacesRoutes from "./modules/workspaces/workspaces.routes.js";
@@ -39,6 +40,7 @@ import attachmentsRoutes from "./modules/attachments/attachments.routes.js";
 import groupsRoutes from "./modules/groups/groups.routes.js";
 import wikiRoutes from "./modules/wiki/wiki.routes.js";
 import timeRoutes from "./modules/time/time.routes.js";
+import ssoRoutes from "./modules/sso/sso.routes.js";
 import { broadcast, broadcastToWorkspace, broadcastToUser } from "./modules/realtime/realtime.service.js";
 import { env } from "./config/env.js";
 
@@ -58,6 +60,7 @@ export async function buildApp() {
   await app.register(websocketPlugin);
   await app.register(multipartPlugin);
   await app.register(storagePlugin);
+  await app.register(dexProxyPlugin);
 
   // Health check
   app.get("/api/health", async (request) => {
@@ -88,6 +91,7 @@ export async function buildApp() {
   await app.register(groupsRoutes, { prefix: "/api" });
   await app.register(wikiRoutes, { prefix: "/api" });
   await app.register(timeRoutes, { prefix: "/api" });
+  await app.register(ssoRoutes, { prefix: "/api/admin/sso" });
 
   // Decorate with broadcast functions for use by other modules
   app.decorate("broadcast", broadcast);
@@ -104,6 +108,7 @@ export async function buildApp() {
     app.setNotFoundHandler((request, reply) => {
       if (
         request.url.startsWith("/api/") ||
+        request.url.startsWith("/dex") ||
         request.url.startsWith("/storage/") ||
         request.url.startsWith("/uploads/")
       ) {
