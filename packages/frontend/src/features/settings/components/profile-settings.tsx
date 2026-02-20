@@ -66,13 +66,13 @@ export function ProfileSettings() {
     uploadFile.mutate(
       { file, purpose: "avatar" },
       {
-        onSuccess: (res) => {
+        onSuccess: (res: { data: { url: string } }) => {
           updateProfile.mutate(
             { avatarUrl: res.data.url },
             { onSuccess: () => toast.success("Avatar updated") },
           );
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err: Error) => toast.error(err.message),
       },
     );
 
