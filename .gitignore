@@ -17,8 +17,8 @@ build/
 coverage/
 *.lcov
 
-# Uploads
-uploads/
+# Uploads (legacy data directory)
+/uploads/
 
 # IDE
 .vscode/

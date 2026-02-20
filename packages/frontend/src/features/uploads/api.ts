@@ -1,0 +1,44 @@
+import { useMutation } from "@tanstack/react-query";
+import { useAuthStore } from "@/stores/auth-store";
+
+interface UploadInput {
+  file: File;
+  purpose?: string;
+}
+
+interface UploadResult {
+  data: { url: string };
+}
+
+export function useUploadFile() {
+  return useMutation({
+    mutationFn: async ({ file, purpose }: UploadInput): Promise<UploadResult> => {
+      const token = useAuthStore.getState().accessToken;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+
+      const formData = new FormData();
+      formData.append("file", file);
+      if (purpose) {
+        formData.append("purpose", purpose);
+      }
+
+      const response = await fetch(`${baseUrl}/uploads`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(
+          (body as { message?: string }).message || "Upload failed",
+        );
+      }
+
+      return response.json() as Promise<UploadResult>;
+    },
+  });
+}
