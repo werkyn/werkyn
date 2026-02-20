@@ -114,7 +114,7 @@ werkyn/
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/werkyn.git
+git clone https://github.com/werkyn/werkyn.git
 cd werkyn
 ```
 
