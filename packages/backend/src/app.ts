@@ -3,6 +3,8 @@
   return Number(this);
 };
 
+import path from "node:path";
+import { readFileSync } from "node:fs";
 import Fastify from "fastify";
 import { getLoggerConfig } from "./plugins/logger.js";
 import prismaPlugin from "./plugins/prisma.js";
@@ -38,6 +40,7 @@ import groupsRoutes from "./modules/groups/groups.routes.js";
 import wikiRoutes from "./modules/wiki/wiki.routes.js";
 import timeRoutes from "./modules/time/time.routes.js";
 import { broadcast, broadcastToWorkspace, broadcastToUser } from "./modules/realtime/realtime.service.js";
+import { env } from "./config/env.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -90,6 +93,25 @@ export async function buildApp() {
   app.decorate("broadcast", broadcast);
   app.decorate("broadcastToWorkspace", broadcastToWorkspace);
   app.decorate("broadcastToUser", broadcastToUser);
+
+  // SPA fallback for production (serves index.html for client-side routes)
+  if (env.NODE_ENV === "production") {
+    const indexHtml = readFileSync(
+      path.resolve(process.cwd(), "packages/frontend/dist/index.html"),
+      "utf-8",
+    );
+
+    app.setNotFoundHandler((request, reply) => {
+      if (
+        request.url.startsWith("/api/") ||
+        request.url.startsWith("/storage/") ||
+        request.url.startsWith("/uploads/")
+      ) {
+        return reply.code(404).send({ error: "Not Found" });
+      }
+      return reply.type("text/html").send(indexHtml);
+    });
+  }
 
   return app;
 }

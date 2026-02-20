@@ -1,5 +1,6 @@
-## ⚠️ Notice
-**This project is not ready to run in production.** Please wait for our first release before you attempt to deploy it. Self-hosting instructions and Docker releases will be available soon.
+## Notice
+
+⚠️ **This project is a development preview.** It is functional but still under active development. Expect breaking changes before a stable release.
 
 </br>
 </br>
@@ -82,7 +83,7 @@ Open-source project management for teams who self-host. Kanban boards, team work
 ### Infrastructure
 - **pnpm Workspaces** - Monorepo package management
 - **TypeScript** - Type safety across the stack
-- **Docker Compose** - Containerized deployment (coming soon)
+- **Docker Compose** - Single-command containerized deployment
 
 ## Project Structure
 
@@ -104,12 +105,10 @@ werkyn/
 - **Real-time events** broadcast via WebSocket subscriptions
 - **Frontend features** organized into feature folders with `api.ts`, `components/`, and `hooks/`
 
-## Development
+## Getting Started
 
 ### Prerequisites
-- **Node.js** >= 20.0.0
-- **pnpm** >= 9.0.0
-- **PostgreSQL** database
+- **Docker** and **Docker Compose**
 
 ### Setup
 
@@ -117,6 +116,32 @@ werkyn/
 ```bash
 git clone https://github.com/yourusername/werkyn.git
 cd werkyn
+```
+
+2. Start the application:
+```bash
+docker compose up --build
+```
+
+This builds the app image, starts PostgreSQL, runs database migrations, and launches the server.
+
+- **App**: `http://localhost:3000`
+- **Mailpit** (email testing UI): `http://localhost:8025`
+
+## Local Development
+
+For contributors who want to run outside of Docker:
+
+### Prerequisites
+- **Node.js** >= 20.0.0
+- **pnpm** >= 9.0.0
+- **Docker** (for PostgreSQL and Mailpit)
+
+### Setup
+
+1. Start the infrastructure services:
+```bash
+docker compose up postgres mailpit
 ```
 
 2. Install dependencies:
@@ -146,8 +171,8 @@ pnpm dev
 ```
 
 This will start both the backend and frontend in development mode:
-- Backend: Typically runs on `http://localhost:3000`
-- Frontend: Typically runs on `http://localhost:5173`
+- Backend: `http://localhost:3000`
+- Frontend: `http://localhost:5173`
 
 ### Available Scripts
 
