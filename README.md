@@ -1,29 +1,52 @@
-## Notice
+<p align="center">
+<img width="300" src="https://github.com/user-attachments/assets/1d9af671-7838-45ee-a810-54a30e605c30" />
+</p>
 
-⚠️ **This project is a development preview.** It is functional but still under active development. Expect breaking changes before a stable release.
+<p align="center">
+Open-source project management and collaboration for teams. Kanban boards, team workspaces, calendar views, and a command palette, all self-hosted with Docker Compose. No SaaS fees, no vendor lock-in, just your data on your infrastructure.
+</p>
 
-</br>
-</br>
+<p align="center">
+<img width="700" alt="werkyn-list_dark" src="https://github.com/user-attachments/assets/42b05fd6-aaff-4400-9acb-41bf535963bb" />
+</p>
 
-<img width="500" src="https://github.com/user-attachments/assets/1d9af671-7838-45ee-a810-54a30e605c30" />
+⚠️ **This project is a development preview.** Expect breaking changes before a stable release.
 
-Open-source project management and collaboration for teams.
+🌎 Our [Live Demo](https://demo.werkyn.com/) is online! Check it out!
 
-## Our [Live Demo](https://demo.werkyn.com/) is ready!
+📚 Read the [Werkyn Documentation](https://www.werkyn.com/docs) for more information and features.
 
-Open-source project management for teams who self-host. Kanban boards, team workspaces, calendar views, and a command palette, all self-hosted with Docker Compose. No SaaS fees, no vendor lock-in, just your data on your infrastructure.
+
+## Getting Started
+For local testing and development. Expect breaking changes before a stable release. There may be security flaws in the current state. Do not use in production. This will require **Docker** and **Docker Compose**.
+
+### Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/werkyn/werkyn.git
+cd werkyn
+```
+
+2. Start the application:
+```bash
+docker compose up --build
+```
+
+This builds the app image, starts PostgreSQL, runs database migrations, and launches the server.
+
+- **App**: `http://localhost:3000`
+- **Mailpit** (email testing UI): `http://localhost:8025`
 
 ## Features
 
 ### Project Management
-- **Kanban Boards** - Visual task management with customizable status columns
+
+**Kanban Boards** - Visual task management with customizable status columns
 
 <img width="1000" alt="werkyn-kanban" src="https://github.com/user-attachments/assets/fdb2332a-ec57-414e-af82-dfc80ba76645" />
 
 - **List View** - Table view with sorting, filtering, and bulk operations
-
-<img width="1000" alt="werkyn-list_dark" src="https://github.com/user-attachments/assets/42b05fd6-aaff-4400-9acb-41bf535963bb" />
-
 - **Calendar View** - Timeline and calendar integration for scheduling
 - **Task Properties** - Rich task details including:
   - Priorities (Urgent, High, Medium, Low)
@@ -38,24 +61,43 @@ Open-source project management for teams who self-host. Kanban boards, team work
 - **Real-time Updates** - WebSocket-powered live collaboration
 
 ### Wiki & Documentation
+<img width="1000" alt="werkyn_wiki" src="https://github.com/user-attachments/assets/c949ec7b-758b-4c3d-844b-ae693eb0370e" />
 - **Notion-like Editor** - Rich text editing with BlockNote
 - **Spaces & Pages** - Organized wiki structure
 - **Team Documentation** - Collaborative knowledge base
 
-<img width="1000" alt="werkyn_wiki" src="https://github.com/user-attachments/assets/c949ec7b-758b-4c3d-844b-ae693eb0370e" />
-
 ### File Management
+<img width="1000" alt="werkyn-drive" src="https://github.com/user-attachments/assets/16185112-393a-48d7-97b4-cf5af73360bd" />
+
 - **Personal Files** - Private file storage per user
 - **Team Shares** - Shared folders and team collaboration
 - **File Uploads** - Direct file attachments to tasks
-
-<img width="1000" alt="werkyn-drive" src="https://github.com/user-attachments/assets/16185112-393a-48d7-97b4-cf5af73360bd" />
 
 ### Workspace Features
 - **Multi-workspace Support** - Organize projects by workspace
 - **Team Collaboration** - Member management and permissions
 - **Command Palette** - Quick navigation and actions (cmdk)
 - **Dark Mode** - Modern UI with theme support
+
+## Project Structure
+
+This is a pnpm monorepo with three packages:
+
+```
+werkyn/
+├── packages/
+│   ├── shared/      # Zod schemas, TypeScript types, and constants
+│   ├── backend/     # Fastify HTTP/WebSocket server with Prisma
+│   └── frontend/    # React SPA with Vite
+├── package.json     # Root workspace configuration
+└── tsconfig.base.json
+```
+
+### Architecture
+- **Backend modules** follow routes → controller → service layering
+- **Authorization** resolves workspace context from route params
+- **Real-time events** broadcast via WebSocket subscriptions
+- **Frontend features** organized into feature folders with `api.ts`, `components/`, and `hooks/`
 
 ## Tech Stack
 
@@ -85,48 +127,6 @@ Open-source project management for teams who self-host. Kanban boards, team work
 - **TypeScript** - Type safety across the stack
 - **Docker Compose** - Single-command containerized deployment
 
-## Project Structure
-
-This is a pnpm monorepo with three packages:
-
-```
-werkyn/
-├── packages/
-│   ├── shared/      # Zod schemas, TypeScript types, and constants
-│   ├── backend/     # Fastify HTTP/WebSocket server with Prisma
-│   └── frontend/    # React SPA with Vite
-├── package.json     # Root workspace configuration
-└── tsconfig.base.json
-```
-
-### Architecture
-- **Backend modules** follow routes → controller → service layering
-- **Authorization** resolves workspace context from route params
-- **Real-time events** broadcast via WebSocket subscriptions
-- **Frontend features** organized into feature folders with `api.ts`, `components/`, and `hooks/`
-
-## Getting Started
-
-### Prerequisites
-- **Docker** and **Docker Compose**
-
-### Setup
-
-1. Clone the repository:
-```bash
-git clone https://github.com/werkyn/werkyn.git
-cd werkyn
-```
-
-2. Start the application:
-```bash
-docker compose up --build
-```
-
-This builds the app image, starts PostgreSQL, runs database migrations, and launches the server.
-
-- **App**: `http://localhost:3000`
-- **Mailpit** (email testing UI): `http://localhost:8025`
 
 ## Local Development
 
