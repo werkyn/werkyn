@@ -1,5 +1,6 @@
 services:
   werkyn:
+    container_name: werkyn-app
     build: .
     restart: unless-stopped
     ports:
@@ -26,6 +27,7 @@ services:
       - werkyn-storage:/app/storage
 
   postgres:
+    container_name: werkyn-postgres
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -43,6 +45,7 @@ services:
       retries: 5
 
   mailpit:
+    container_name: werkyn-mailpit
     image: axllent/mailpit:latest
     restart: unless-stopped
     ports:
