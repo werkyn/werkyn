@@ -2,6 +2,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { stringify } from "yaml";
 import type { PrismaClient } from "@prisma/client";
+import { DexConnectorTypeMap } from "@pm/shared";
 import { env } from "../config/env.js";
 
 interface DexConfig {
@@ -23,6 +24,18 @@ interface DexConfig {
   }>;
 }
 
+function parsePostgresUrl(url: string) {
+  const parsed = new URL(url);
+  return {
+    host: parsed.hostname,
+    port: parsed.port ? Number(parsed.port) : 5432,
+    user: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    database: parsed.pathname.replace(/^\//, ""),
+    ssl: { mode: "disable" as const },
+  };
+}
+
 export async function generateDexConfig(prisma: PrismaClient): Promise<string> {
   const ssoConfig = await prisma.ssoConfig.findUnique({
     where: { id: "singleton" },
@@ -35,7 +48,7 @@ export async function generateDexConfig(prisma: PrismaClient): Promise<string> {
 
   const storage: Record<string, unknown> =
     env.DEX_STORAGE_TYPE === "postgres"
-      ? { type: "postgres", config: { host: env.DATABASE_URL } }
+      ? { type: "postgres", config: parsePostgresUrl(env.DATABASE_URL) }
       : { type: "sqlite3", config: { file: path.join(env.DEX_CONFIG_DIR, "dex.db") } };
 
   const dexConfig: DexConfig = {
@@ -51,12 +64,18 @@ export async function generateDexConfig(prisma: PrismaClient): Promise<string> {
         secret: env.JWT_SECRET,
       },
     ],
-    connectors: ssoConfig.connectors.map((c) => ({
-      type: c.type,
-      id: c.connectorId,
-      name: c.name,
-      config: c.config as Record<string, unknown>,
-    })),
+    connectors: ssoConfig.connectors.map((c) => {
+      const dexType = DexConnectorTypeMap[c.type] ?? c.type;
+      const config = { ...(c.config as Record<string, unknown>) };
+
+      // OIDC-based connectors need redirectURI so Dex knows where
+      // the upstream provider should send the user back to.
+      if (dexType === "oidc" && !config.redirectURI) {
+        config.redirectURI = `${env.FRONTEND_URL}/dex/callback`;
+      }
+
+      return { type: dexType, id: c.connectorId, name: c.name, config };
+    }),
   };
 
   await mkdir(env.DEX_CONFIG_DIR, { recursive: true });

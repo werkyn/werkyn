@@ -75,6 +75,10 @@ export const ConnectorConfigByType = {
   github: GitHubConnectorConfigSchema,
   google: GoogleConnectorConfigSchema,
   microsoft: MicrosoftConnectorConfigSchema,
+  zitadel: OidcConnectorConfigSchema,
+  authentik: OidcConnectorConfigSchema,
+  keycloak: OidcConnectorConfigSchema,
+  pocketid: OidcConnectorConfigSchema,
 } as const;
 
 export const SsoConnectorType = z.enum([
@@ -84,7 +88,19 @@ export const SsoConnectorType = z.enum([
   "github",
   "google",
   "microsoft",
+  "zitadel",
+  "authentik",
+  "keycloak",
+  "pocketid",
 ]);
+
+/** Maps UI connector types to the underlying Dex connector type */
+export const DexConnectorTypeMap: Record<string, string> = {
+  zitadel: "oidc",
+  authentik: "oidc",
+  keycloak: "oidc",
+  pocketid: "oidc",
+};
 export type SsoConnectorType = z.infer<typeof SsoConnectorType>;
 
 // ─── SSO Config schemas ─────────────────────────────────

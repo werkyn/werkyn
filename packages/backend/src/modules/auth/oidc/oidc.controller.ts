@@ -11,13 +11,22 @@ export async function oidcLoginHandler(
     return_url?: string;
   };
 
-  const authUrl = await oidcService.initiateOidcLogin(
-    request.server.prisma,
-    query.connector_id,
-    query.return_url,
-  );
+  try {
+    const authUrl = await oidcService.initiateOidcLogin(
+      request.server.prisma,
+      query.connector_id,
+      query.return_url,
+    );
 
-  return reply.redirect(authUrl);
+    return reply.redirect(authUrl);
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "SSO login failed";
+    request.server.log.error(err, "OIDC login initiation failed");
+    return reply.redirect(
+      `${env.FRONTEND_URL}/login?sso_error=${encodeURIComponent(message)}`,
+    );
+  }
 }
 
 export async function oidcCallbackHandler(

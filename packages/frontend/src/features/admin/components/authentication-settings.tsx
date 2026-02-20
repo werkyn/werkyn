@@ -12,8 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Plus, Shield, Power, PowerOff } from "lucide-react";
-import { CreateSsoConnectorSchema, type CreateSsoConnectorInput } from "@pm/shared";
+import { Trash2, Plus, Shield, Power, PowerOff, Copy, Check, Pencil } from "lucide-react";
+import { CreateSsoConnectorSchema, type CreateSsoConnectorInput, type UpdateSsoConnectorInput } from "@pm/shared";
 import {
   useSsoConfig,
   useUpdateSsoConfig,
@@ -31,6 +31,10 @@ const CONNECTOR_TYPES = [
   { value: "github", label: "GitHub" },
   { value: "google", label: "Google" },
   { value: "microsoft", label: "Microsoft (Azure AD)" },
+  { value: "zitadel", label: "Zitadel" },
+  { value: "authentik", label: "Authentik" },
+  { value: "keycloak", label: "Keycloak" },
+  { value: "pocketid", label: "PocketID" },
 ];
 
 const CONNECTOR_FIELDS: Record<string, Array<{ key: string; label: string; type?: string; required?: boolean }>> = {
@@ -68,6 +72,26 @@ const CONNECTOR_FIELDS: Record<string, Array<{ key: string; label: string; type?
     { key: "clientSecret", label: "Client Secret", type: "password", required: true },
     { key: "tenant", label: "Tenant ID" },
   ],
+  zitadel: [
+    { key: "issuer", label: "Issuer URL", required: true },
+    { key: "clientID", label: "Client ID", required: true },
+    { key: "clientSecret", label: "Client Secret", type: "password", required: true },
+  ],
+  authentik: [
+    { key: "issuer", label: "Issuer URL", required: true },
+    { key: "clientID", label: "Client ID", required: true },
+    { key: "clientSecret", label: "Client Secret", type: "password", required: true },
+  ],
+  keycloak: [
+    { key: "issuer", label: "Issuer URL", required: true },
+    { key: "clientID", label: "Client ID", required: true },
+    { key: "clientSecret", label: "Client Secret", type: "password", required: true },
+  ],
+  pocketid: [
+    { key: "issuer", label: "Issuer URL", required: true },
+    { key: "clientID", label: "Client ID", required: true },
+    { key: "clientSecret", label: "Client Secret", type: "password", required: true },
+  ],
 };
 
 export function AuthenticationSettings() {
@@ -78,6 +102,7 @@ export function AuthenticationSettings() {
   const updateConnector = useUpdateSsoConnector();
   const deleteConnector = useDeleteSsoConnector();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingConnectorId, setEditingConnectorId] = useState<string | null>(null);
 
   const config = configData?.data;
   const connectors = connectorsData?.data ?? [];
@@ -194,39 +219,72 @@ export function AuthenticationSettings() {
         )}
 
         {connectors.map((c) => (
-          <div
-            key={c.id}
-            className="flex items-center justify-between p-3 border rounded-md"
-          >
-            <div className="flex items-center gap-3">
-              {c.enabled ? (
-                <Power className="h-4 w-4 text-green-500" />
-              ) : (
-                <PowerOff className="h-4 w-4 text-muted-foreground" />
-              )}
-              <div>
-                <p className="text-sm font-medium">{c.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {c.type.toUpperCase()} &middot; {c.connectorId}
-                </p>
+          <div key={c.id} className="space-y-0">
+            <div className="flex items-center justify-between p-3 border rounded-md">
+              <div className="flex items-center gap-3">
+                {c.enabled ? (
+                  <Power className="h-4 w-4 text-green-500" />
+                ) : (
+                  <PowerOff className="h-4 w-4 text-muted-foreground" />
+                )}
+                <div>
+                  <p className="text-sm font-medium">{c.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {c.type.toUpperCase()} &middot; {c.connectorId}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleToggleConnector(c)}
+                >
+                  {c.enabled ? "Disable" : "Enable"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setEditingConnectorId(
+                      editingConnectorId === c.connectorId ? null : c.connectorId,
+                    )
+                  }
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteConnector(c.connectorId)}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleToggleConnector(c)}
-              >
-                {c.enabled ? "Disable" : "Enable"}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDeleteConnector(c.connectorId)}
-              >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </div>
+            {editingConnectorId === c.connectorId && (
+              <EditConnectorForm
+                connector={c}
+                onClose={() => setEditingConnectorId(null)}
+                onSubmit={(data) => {
+                  updateConnector.mutate(
+                    { connectorId: c.connectorId, ...data },
+                    {
+                      onSuccess: () => {
+                        toast.success("Connector updated");
+                        setEditingConnectorId(null);
+                      },
+                      onError: (err) => {
+                        toast.error(
+                          err instanceof Error ? err.message : "Failed to update connector",
+                        );
+                      },
+                    },
+                  );
+                }}
+                isPending={updateConnector.isPending}
+              />
+            )}
           </div>
         ))}
 
@@ -262,6 +320,8 @@ function AddConnectorForm({
   isPending: boolean;
 }) {
   const [selectedType, setSelectedType] = useState("oidc");
+  const [copied, setCopied] = useState(false);
+  const callbackUrl = `${window.location.origin}/dex/callback`;
   const {
     register,
     handleSubmit,
@@ -353,6 +413,59 @@ function AddConnectorForm({
           <Label className="text-sm text-muted-foreground">
             Configuration
           </Label>
+          <div className="space-y-1">
+            <Label htmlFor="callback-url" className="text-xs">
+              Callback URL
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="callback-url"
+                value={callbackUrl}
+                readOnly
+                className="bg-muted text-muted-foreground"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => {
+                  const el = document.getElementById("callback-url") as HTMLInputElement;
+                  if (navigator.clipboard?.writeText) {
+                    navigator.clipboard.writeText(callbackUrl).then(
+                      () => {
+                        setCopied(true);
+                        toast.success("Copied to clipboard");
+                        setTimeout(() => setCopied(false), 2000);
+                      },
+                      () => {
+                        el?.select();
+                        document.execCommand("copy");
+                        setCopied(true);
+                        toast.success("Copied to clipboard");
+                        setTimeout(() => setCopied(false), 2000);
+                      },
+                    );
+                  } else {
+                    el?.select();
+                    document.execCommand("copy");
+                    setCopied(true);
+                    toast.success("Copied to clipboard");
+                    setTimeout(() => setCopied(false), 2000);
+                  }
+                }}
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Add this URL as the redirect/callback URI in your identity provider.
+            </p>
+          </div>
           {fields.map((field) => (
             <div key={field.key} className="space-y-1">
               <Label htmlFor={`config-${field.key}`} className="text-xs">
@@ -374,6 +487,146 @@ function AddConnectorForm({
           </Button>
           <Button type="submit" disabled={isPending}>
             {isPending ? "Creating..." : "Create"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function EditConnectorForm({
+  connector,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  connector: SsoConnector;
+  onClose: () => void;
+  onSubmit: (data: UpdateSsoConnectorInput) => void;
+  isPending: boolean;
+}) {
+  const [name, setName] = useState(connector.name);
+  const [copied, setCopied] = useState(false);
+  const callbackUrl = `${window.location.origin}/dex/callback`;
+  const fields = CONNECTOR_FIELDS[connector.type] ?? [];
+  const existingConfig = connector.config as Record<string, unknown>;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const config: Record<string, unknown> = {};
+    for (const field of fields) {
+      const inputEl = document.getElementById(`edit-config-${field.key}`) as HTMLInputElement;
+      if (inputEl?.value) {
+        const keys = field.key.split(".");
+        if (keys.length === 2) {
+          if (!config[keys[0]]) config[keys[0]] = {};
+          (config[keys[0]] as Record<string, unknown>)[keys[1]] = inputEl.value;
+        } else {
+          config[field.key] = inputEl.value;
+        }
+      }
+    }
+    onSubmit({ name, config });
+  };
+
+  function getNestedValue(obj: Record<string, unknown>, key: string): string {
+    const keys = key.split(".");
+    if (keys.length === 2) {
+      const nested = obj[keys[0]] as Record<string, unknown> | undefined;
+      return (nested?.[keys[1]] as string) ?? "";
+    }
+    return (obj[key] as string) ?? "";
+  }
+
+  return (
+    <div className="border border-t-0 rounded-b-md p-4 space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="space-y-1">
+          <Label htmlFor="edit-callback-url" className="text-xs">
+            Callback URL
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              id="edit-callback-url"
+              value={callbackUrl}
+              readOnly
+              className="bg-muted text-muted-foreground"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              onClick={() => {
+                const el = document.getElementById("edit-callback-url") as HTMLInputElement;
+                if (navigator.clipboard?.writeText) {
+                  navigator.clipboard.writeText(callbackUrl).then(
+                    () => {
+                      setCopied(true);
+                      toast.success("Copied to clipboard");
+                      setTimeout(() => setCopied(false), 2000);
+                    },
+                    () => {
+                      el?.select();
+                      document.execCommand("copy");
+                      setCopied(true);
+                      toast.success("Copied to clipboard");
+                      setTimeout(() => setCopied(false), 2000);
+                    },
+                  );
+                } else {
+                  el?.select();
+                  document.execCommand("copy");
+                  setCopied(true);
+                  toast.success("Copied to clipboard");
+                  setTimeout(() => setCopied(false), 2000);
+                }
+              }}
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-green-500" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Add this URL as the redirect/callback URI in your identity provider.
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="edit-name" className="text-xs">
+            Display Name
+          </Label>
+          <Input
+            id="edit-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+
+        {fields.map((field) => (
+          <div key={field.key} className="space-y-1">
+            <Label htmlFor={`edit-config-${field.key}`} className="text-xs">
+              {field.label}
+              {field.required && <span className="text-destructive"> *</span>}
+            </Label>
+            <Input
+              id={`edit-config-${field.key}`}
+              type={field.type || "text"}
+              defaultValue={getNestedValue(existingConfig, field.key)}
+              placeholder={field.label}
+            />
+          </div>
+        ))}
+
+        <div className="flex gap-2 justify-end">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Saving..." : "Save"}
           </Button>
         </div>
       </form>

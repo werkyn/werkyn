@@ -1,4 +1,5 @@
 import * as oauth from "oauth4webapi";
+import { allowInsecureRequests } from "oauth4webapi";
 import crypto from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { env } from "../../../config/env.js";
@@ -9,18 +10,34 @@ import {
   hashToken,
 } from "../../../utils/tokens.js";
 
-const DEX_ISSUER_URL = () => `${env.FRONTEND_URL}/dex`;
 const CLIENT_ID = "werkyn";
 const REDIRECT_URI = () => `${env.FRONTEND_URL}/api/auth/oidc/callback`;
+
+// Talk directly to Dex on the internal port for backend-to-backend calls
+// (discovery, token exchange, JWKS). Only the authorization_endpoint uses
+// the external URL since the browser navigates there.
+const DEX_INTERNAL_BASE = () =>
+  `http://127.0.0.1:${env.DEX_INTERNAL_PORT}/dex`;
 
 let cachedAuthServer: oauth.AuthorizationServer | null = null;
 
 async function getAuthServer(): Promise<oauth.AuthorizationServer> {
   if (cachedAuthServer) return cachedAuthServer;
 
-  const issuerUrl = new URL(DEX_ISSUER_URL());
-  const response = await oauth.discoveryRequest(issuerUrl);
-  cachedAuthServer = await oauth.processDiscoveryResponse(issuerUrl, response);
+  const internalBase = DEX_INTERNAL_BASE();
+  const externalIssuer = `${env.FRONTEND_URL}/dex`;
+
+  // Build the AuthorizationServer manually so backend-to-Dex calls
+  // go directly to the internal port (no proxy round-trip).
+  // The authorization_endpoint uses the external URL for browser redirects.
+  cachedAuthServer = {
+    issuer: externalIssuer,
+    authorization_endpoint: `${externalIssuer}/auth`,
+    token_endpoint: `${internalBase}/token`,
+    userinfo_endpoint: `${internalBase}/userinfo`,
+    jwks_uri: `${internalBase}/keys`,
+  };
+
   return cachedAuthServer;
 }
 
@@ -147,6 +164,7 @@ export async function handleOidcCallback(
     callbackParams,
     REDIRECT_URI(),
     oidcState.codeVerifier,
+    { [allowInsecureRequests]: true },
   );
 
   // processAuthorizationCodeResponse will throw ResponseBodyError on error
