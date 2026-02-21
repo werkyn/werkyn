@@ -1,0 +1,382 @@
+import {
+  useInfiniteQuery,
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
+import { queryKeys } from "@/lib/query-keys";
+import type {
+  CreateChannelInput,
+  UpdateChannelInput,
+  SendMessageInput,
+  UpdateMessageInput,
+  CreateDmInput,
+  AddMembersInput,
+} from "@pm/shared";
+
+// ─── Types ─────────────────────────────────────────────
+
+export interface ChatChannel {
+  id: string;
+  workspaceId: string;
+  name: string | null;
+  description: string | null;
+  type: "PUBLIC" | "PRIVATE" | "DM";
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  _count: { members: number };
+  isMember?: boolean;
+  members?: Array<{
+    id: string;
+    userId: string;
+    user: { id: string; displayName: string; avatarUrl: string | null };
+  }>;
+}
+
+export interface ChatChannelWithMembers extends ChatChannel {
+  members: Array<{
+    id: string;
+    channelId: string;
+    userId: string;
+    lastReadAt: string;
+    joinedAt: string;
+    user: { id: string; displayName: string; avatarUrl: string | null };
+  }>;
+}
+
+export interface ChatReaction {
+  id: string;
+  emoji: string;
+  userId: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  channelId: string;
+  userId: string;
+  content: string;
+  parentId: string | null;
+  editedAt: string | null;
+  deletedAt: string | null;
+  createdAt: string;
+  user: { id: string; displayName: string; avatarUrl: string | null };
+  _count?: { replies: number };
+  reactions?: ChatReaction[];
+}
+
+export interface ChatMember {
+  id: string;
+  channelId: string;
+  userId: string;
+  lastReadAt: string;
+  joinedAt: string;
+  user: {
+    id: string;
+    displayName: string;
+    avatarUrl: string | null;
+    email: string;
+  };
+}
+
+export interface UnreadCount {
+  channelId: string;
+  count: number;
+}
+
+interface MessagesPage {
+  data: ChatMessage[];
+  nextCursor?: string;
+}
+
+// ─── Channel Hooks ─────────────────────────────────────
+
+export function useChannels(wid: string) {
+  return useQuery({
+    queryKey: queryKeys.chatChannels(wid),
+    queryFn: () =>
+      api
+        .get(`chat/${wid}/channels`)
+        .json<{ data: ChatChannel[] }>(),
+    enabled: !!wid,
+  });
+}
+
+export function useChannel(wid: string, channelId: string) {
+  return useQuery({
+    queryKey: queryKeys.chatChannel(channelId),
+    queryFn: () =>
+      api
+        .get(`chat/${wid}/channels/${channelId}`)
+        .json<{ data: ChatChannel }>(),
+    enabled: !!wid && !!channelId,
+  });
+}
+
+export function useCreateChannel(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreateChannelInput) =>
+      api
+        .post(`chat/${wid}/channels`, { json: data })
+        .json<{ data: ChatChannel }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannels(wid) });
+    },
+  });
+}
+
+export function useUpdateChannel(wid: string, channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: UpdateChannelInput) =>
+      api
+        .patch(`chat/${wid}/channels/${channelId}`, { json: data })
+        .json<{ data: ChatChannel }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannels(wid) });
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannel(channelId) });
+    },
+  });
+}
+
+export function useDeleteChannel(wid: string, channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.delete(`chat/${wid}/channels/${channelId}`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannels(wid) });
+    },
+  });
+}
+
+export function useJoinChannel(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (channelId: string) =>
+      api.post(`chat/${wid}/channels/${channelId}/join`).then(() => {}),
+    onSuccess: (_, channelId) => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannels(wid) });
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannel(channelId) });
+    },
+  });
+}
+
+export function useLeaveChannel(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (channelId: string) =>
+      api.post(`chat/${wid}/channels/${channelId}/leave`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannels(wid) });
+    },
+  });
+}
+
+// ─── Message Hooks ─────────────────────────────────────
+
+export function useMessages(wid: string, channelId: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.chatMessages(channelId),
+    queryFn: ({ pageParam }) => {
+      const searchParams: Record<string, string> = { limit: "50" };
+      if (pageParam) searchParams.cursor = pageParam;
+      return api
+        .get(`chat/${wid}/channels/${channelId}/messages`, { searchParams })
+        .json<MessagesPage>();
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled: !!wid && !!channelId,
+  });
+}
+
+export function useSendMessage(wid: string, channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: SendMessageInput) =>
+      api
+        .post(`chat/${wid}/channels/${channelId}/messages`, { json: data })
+        .json<{ data: ChatMessage }>(),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatMessages(channelId) });
+      // If this was a thread reply, also refresh the thread panel
+      if (res.data.parentId) {
+        qc.invalidateQueries({
+          queryKey: queryKeys.chatThread(res.data.parentId),
+        });
+      }
+    },
+  });
+}
+
+export function useUpdateMessage(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      messageId,
+      ...data
+    }: UpdateMessageInput & { messageId: string; channelId: string }) =>
+      api
+        .patch(`chat/${wid}/messages/${messageId}`, { json: data })
+        .json<{ data: ChatMessage }>(),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({
+        queryKey: queryKeys.chatMessages(variables.channelId),
+      });
+    },
+  });
+}
+
+export function useDeleteMessage(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      messageId,
+      channelId,
+    }: {
+      messageId: string;
+      channelId: string;
+    }) => api.delete(`chat/${wid}/messages/${messageId}`).then(() => {}),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({
+        queryKey: queryKeys.chatMessages(variables.channelId),
+      });
+    },
+  });
+}
+
+// ─── Thread Hooks ──────────────────────────────────────
+
+export function useThreadReplies(wid: string, messageId: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.chatThread(messageId),
+    queryFn: ({ pageParam }) => {
+      const searchParams: Record<string, string> = { limit: "50" };
+      if (pageParam) searchParams.cursor = pageParam;
+      return api
+        .get(`chat/${wid}/messages/${messageId}/thread`, { searchParams })
+        .json<MessagesPage>();
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled: !!wid && !!messageId,
+    staleTime: 0,
+  });
+}
+
+// ─── Unread Hooks ──────────────────────────────────────
+
+export function useUnreadCounts(wid: string) {
+  return useQuery({
+    queryKey: queryKeys.chatUnread(wid),
+    queryFn: () =>
+      api.get(`chat/${wid}/unread`).json<{ data: UnreadCount[] }>(),
+    enabled: !!wid,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useMarkRead(wid: string, channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.post(`chat/${wid}/channels/${channelId}/read`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatUnread(wid) });
+    },
+  });
+}
+
+// ─── DM Hooks ──────────────────────────────────────────
+
+export function useFindOrCreateDm(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreateDmInput) =>
+      api
+        .post(`chat/${wid}/dm`, { json: data })
+        .json<{ data: ChatChannel }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannels(wid) });
+    },
+  });
+}
+
+// ─── Member Hooks ──────────────────────────────────────
+
+export function useChannelMembers(wid: string, channelId: string) {
+  return useQuery({
+    queryKey: queryKeys.chatMembers(channelId),
+    queryFn: () =>
+      api
+        .get(`chat/${wid}/channels/${channelId}/members`)
+        .json<{ data: ChatMember[] }>(),
+    enabled: !!wid && !!channelId,
+  });
+}
+
+export function useAddMembers(wid: string, channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: AddMembersInput) =>
+      api
+        .post(`chat/${wid}/channels/${channelId}/members`, { json: data })
+        .then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatMembers(channelId) });
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannel(channelId) });
+    },
+  });
+}
+
+export function useRemoveMember(wid: string, channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      api
+        .delete(`chat/${wid}/channels/${channelId}/members/${userId}`)
+        .then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatMembers(channelId) });
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannel(channelId) });
+    },
+  });
+}
+
+// ─── Typing ────────────────────────────────────────────
+
+let lastTypingSent = 0;
+
+export function useSendTyping(wid: string, channelId: string) {
+  return useMutation({
+    mutationFn: () => {
+      const now = Date.now();
+      if (now - lastTypingSent < 3000) return Promise.resolve();
+      lastTypingSent = now;
+      return api
+        .post(`chat/${wid}/channels/${channelId}/typing`)
+        .then(() => {});
+    },
+  });
+}
+
+// ─── Reactions ────────────────────────────────────────
+
+export function useToggleReaction(wid: string, channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { messageId: string; emoji: string }) =>
+      api
+        .post(`chat/${wid}/messages/${data.messageId}/reactions`, {
+          json: { emoji: data.emoji },
+        })
+        .json<{ data: { action: "added" | "removed" } }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatMessages(channelId) });
+      qc.invalidateQueries({ queryKey: ["chat-thread"] });
+    },
+  });
+}

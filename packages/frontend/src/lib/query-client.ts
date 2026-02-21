@@ -6,7 +6,7 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 60 * 1000,
       retry: 1,
-      refetchOnWindowFocus: "always",
+      refetchOnWindowFocus: true,
     },
     mutations: {
       onError: (error) => {

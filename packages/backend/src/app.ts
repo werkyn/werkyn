@@ -41,7 +41,8 @@ import groupsRoutes from "./modules/groups/groups.routes.js";
 import wikiRoutes from "./modules/wiki/wiki.routes.js";
 import timeRoutes from "./modules/time/time.routes.js";
 import ssoRoutes from "./modules/sso/sso.routes.js";
-import { broadcast, broadcastToWorkspace, broadcastToUser } from "./modules/realtime/realtime.service.js";
+import chatRoutes from "./modules/chat/chat.routes.js";
+import { broadcast, broadcastToWorkspace, broadcastToUser, broadcastToChannel } from "./modules/realtime/realtime.service.js";
 import { env } from "./config/env.js";
 
 export async function buildApp() {
@@ -92,11 +93,13 @@ export async function buildApp() {
   await app.register(wikiRoutes, { prefix: "/api" });
   await app.register(timeRoutes, { prefix: "/api" });
   await app.register(ssoRoutes, { prefix: "/api/admin/sso" });
+  await app.register(chatRoutes, { prefix: "/api/chat" });
 
   // Decorate with broadcast functions for use by other modules
   app.decorate("broadcast", broadcast);
   app.decorate("broadcastToWorkspace", broadcastToWorkspace);
   app.decorate("broadcastToUser", broadcastToUser);
+  app.decorate("broadcastToChannel", broadcastToChannel);
 
   // SPA fallback for production (serves index.html for client-side routes)
   if (env.NODE_ENV === "production") {

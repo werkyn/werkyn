@@ -6,6 +6,7 @@ interface ConnectionInfo {
   userId: string;
   projectIds: Set<string>;
   workspaceIds: Set<string>;
+  channelIds: Set<string>;
   authenticatedAt: number;
   lastActivity: number;
 }
@@ -61,6 +62,7 @@ export function authenticate(
         userId,
         projectIds: new Set(),
         workspaceIds: new Set(),
+        channelIds: new Set(),
         authenticatedAt: Date.now(),
         lastActivity: Date.now(),
       });
@@ -140,6 +142,55 @@ export function unsubscribeWorkspace(ws: WebSocket, workspaceId: string): void {
   if (conn) {
     conn.workspaceIds.delete(workspaceId);
     conn.lastActivity = Date.now();
+  }
+}
+
+export async function subscribeChannel(
+  ws: WebSocket,
+  channelId: string,
+  prisma: PrismaClient,
+): Promise<boolean> {
+  const conn = connections.get(ws);
+  if (!conn) return false;
+
+  // Verify channel membership
+  const member = await prisma.chatChannelMember.findUnique({
+    where: {
+      channelId_userId: {
+        channelId,
+        userId: conn.userId,
+      },
+    },
+  });
+  if (!member) return false;
+
+  conn.channelIds.add(channelId);
+  conn.lastActivity = Date.now();
+  return true;
+}
+
+export function unsubscribeChannel(ws: WebSocket, channelId: string): void {
+  const conn = connections.get(ws);
+  if (conn) {
+    conn.channelIds.delete(channelId);
+    conn.lastActivity = Date.now();
+  }
+}
+
+export function broadcastToChannel(
+  channelId: string,
+  event: string,
+  data: unknown,
+  excludeUserId?: string,
+): void {
+  const message = JSON.stringify({ event, data, channelId });
+
+  for (const [ws, conn] of connections) {
+    if (conn.channelIds.has(channelId) && conn.userId !== excludeUserId) {
+      if (ws.readyState === ws.OPEN) {
+        ws.send(message);
+      }
+    }
   }
 }
 

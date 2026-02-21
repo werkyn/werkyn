@@ -55,4 +55,10 @@ export const queryKeys = {
   ssoInfo: ["sso-info"] as const,
   ssoConfig: ["sso-config"] as const,
   ssoConnectors: ["sso-connectors"] as const,
+  chatChannels: (wid: string) => ["chat-channels", { wid }] as const,
+  chatChannel: (channelId: string) => ["chat-channel", channelId] as const,
+  chatMessages: (channelId: string) => ["chat-messages", { channelId }] as const,
+  chatThread: (messageId: string) => ["chat-thread", { messageId }] as const,
+  chatUnread: (wid: string) => ["chat-unread", { wid }] as const,
+  chatMembers: (channelId: string) => ["chat-members", { channelId }] as const,
 };

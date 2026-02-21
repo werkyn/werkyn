@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useWorkspaceSettings, useUpdateWorkspaceSettings } from "../api";
 import { toast } from "sonner";
-import { Loader2, HardDrive, BookOpen, Clock } from "lucide-react";
+import { Loader2, HardDrive, BookOpen, Clock, MessageSquare } from "lucide-react";
 
 const MODULES = [
   {
@@ -23,6 +23,12 @@ const MODULES = [
     description: "Timesheets and time entries",
     icon: Clock,
   },
+  {
+    id: "chat",
+    label: "Chat",
+    description: "Channels, direct messages, and real-time conversations",
+    icon: MessageSquare,
+  },
 ] as const;
 
 interface ModulesSettingsProps {
@@ -34,11 +40,12 @@ export function ModulesSettings({ workspaceId }: ModulesSettingsProps) {
   const settings = settingsData?.data;
   const updateSettings = useUpdateWorkspaceSettings(workspaceId);
 
-  type ModuleId = "drive" | "wiki" | "time";
+  type ModuleId = "drive" | "wiki" | "time" | "chat";
   const [enabledModules, setEnabledModules] = useState<ModuleId[]>([
     "drive",
     "wiki",
     "time",
+    "chat",
   ]);
 
   useEffect(() => {

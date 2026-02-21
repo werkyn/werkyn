@@ -6,6 +6,7 @@ declare module "fastify" {
     broadcast: (projectId: string, event: string, data: unknown, excludeUserId?: string) => void;
     broadcastToWorkspace: (workspaceId: string, event: string, data: unknown, excludeUserId?: string) => void;
     broadcastToUser: (userId: string, event: string, data: unknown) => void;
+    broadcastToChannel: (channelId: string, event: string, data: unknown, excludeUserId?: string) => void;
   }
 
   interface FastifyRequest {

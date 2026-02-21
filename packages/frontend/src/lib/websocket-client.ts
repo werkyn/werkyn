@@ -17,6 +17,7 @@ export class WebSocketClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private subscriptions = new Set<string>();
   private workspaceSubscriptions = new Set<string>();
+  private channelSubscriptions = new Set<string>();
   private connected = false;
   private destroyed = false;
 
@@ -56,6 +57,9 @@ export class WebSocketClient {
             }
             for (const workspaceId of this.workspaceSubscriptions) {
               this.ws?.send(JSON.stringify({ type: "subscribe_workspace", workspaceId }));
+            }
+            for (const channelId of this.channelSubscriptions) {
+              this.ws?.send(JSON.stringify({ type: "subscribe_channel", channelId }));
             }
             return;
           }
@@ -112,6 +116,7 @@ export class WebSocketClient {
     this.handlers.clear();
     this.subscriptions.clear();
     this.workspaceSubscriptions.clear();
+    this.channelSubscriptions.clear();
     document.removeEventListener("visibilitychange", this.handleVisibility);
   }
 
@@ -140,6 +145,20 @@ export class WebSocketClient {
     this.workspaceSubscriptions.delete(workspaceId);
     if (this.connected && this.ws) {
       this.ws.send(JSON.stringify({ type: "unsubscribe_workspace", workspaceId }));
+    }
+  }
+
+  subscribeChannel(channelId: string): void {
+    this.channelSubscriptions.add(channelId);
+    if (this.connected && this.ws) {
+      this.ws.send(JSON.stringify({ type: "subscribe_channel", channelId }));
+    }
+  }
+
+  unsubscribeChannel(channelId: string): void {
+    this.channelSubscriptions.delete(channelId);
+    if (this.connected && this.ws) {
+      this.ws.send(JSON.stringify({ type: "unsubscribe_channel", channelId }));
     }
   }
 

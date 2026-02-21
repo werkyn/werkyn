@@ -27,6 +27,7 @@ import { Route as AuthedWorkspaceSlugSettingsRouteImport } from './routes/_authe
 import { Route as AuthedWorkspaceSlugMyTasksRouteImport } from './routes/_authed/$workspaceSlug/my-tasks'
 import { Route as AuthedWorkspaceSlugKnowledgeRouteImport } from './routes/_authed/$workspaceSlug/knowledge'
 import { Route as AuthedWorkspaceSlugDriveRouteImport } from './routes/_authed/$workspaceSlug/drive'
+import { Route as AuthedWorkspaceSlugChatRouteImport } from './routes/_authed/$workspaceSlug/chat'
 import { Route as AuthedWorkspaceSlugAdminRouteImport } from './routes/_authed/$workspaceSlug/admin'
 import { Route as AuthedWorkspaceSlugTimeIndexRouteImport } from './routes/_authed/$workspaceSlug/time.index'
 import { Route as AuthedWorkspaceSlugProjectsIndexRouteImport } from './routes/_authed/$workspaceSlug/projects/index'
@@ -131,6 +132,12 @@ const AuthedWorkspaceSlugDriveRoute =
     path: '/drive',
     getParentRoute: () => AuthedWorkspaceSlugRoute,
   } as any)
+const AuthedWorkspaceSlugChatRoute =
+  AuthedWorkspaceSlugChatRouteImport.update({
+    id: '/chat',
+    path: '/chat',
+    getParentRoute: () => AuthedWorkspaceSlugRoute,
+  } as any)
 const AuthedWorkspaceSlugAdminRoute =
   AuthedWorkspaceSlugAdminRouteImport.update({
     id: '/admin',
@@ -198,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/share/$token': typeof ShareTokenRoute
   '/verify-email/$token': typeof VerifyEmailTokenRoute
   '/$workspaceSlug/admin': typeof AuthedWorkspaceSlugAdminRoute
+  '/$workspaceSlug/chat': typeof AuthedWorkspaceSlugChatRoute
   '/$workspaceSlug/drive': typeof AuthedWorkspaceSlugDriveRoute
   '/$workspaceSlug/knowledge': typeof AuthedWorkspaceSlugKnowledgeRoute
   '/$workspaceSlug/my-tasks': typeof AuthedWorkspaceSlugMyTasksRoute
@@ -225,6 +233,7 @@ export interface FileRoutesByTo {
   '/share/$token': typeof ShareTokenRoute
   '/verify-email/$token': typeof VerifyEmailTokenRoute
   '/$workspaceSlug/admin': typeof AuthedWorkspaceSlugAdminRoute
+  '/$workspaceSlug/chat': typeof AuthedWorkspaceSlugChatRoute
   '/$workspaceSlug/drive': typeof AuthedWorkspaceSlugDriveRoute
   '/$workspaceSlug/knowledge': typeof AuthedWorkspaceSlugKnowledgeRoute
   '/$workspaceSlug/my-tasks': typeof AuthedWorkspaceSlugMyTasksRoute
@@ -254,6 +263,7 @@ export interface FileRoutesById {
   '/share/$token': typeof ShareTokenRoute
   '/verify-email/$token': typeof VerifyEmailTokenRoute
   '/_authed/$workspaceSlug/admin': typeof AuthedWorkspaceSlugAdminRoute
+  '/_authed/$workspaceSlug/chat': typeof AuthedWorkspaceSlugChatRoute
   '/_authed/$workspaceSlug/drive': typeof AuthedWorkspaceSlugDriveRoute
   '/_authed/$workspaceSlug/knowledge': typeof AuthedWorkspaceSlugKnowledgeRoute
   '/_authed/$workspaceSlug/my-tasks': typeof AuthedWorkspaceSlugMyTasksRoute
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
     | '/share/$token'
     | '/verify-email/$token'
     | '/$workspaceSlug/admin'
+    | '/$workspaceSlug/chat'
     | '/$workspaceSlug/drive'
     | '/$workspaceSlug/knowledge'
     | '/$workspaceSlug/my-tasks'
@@ -311,6 +322,7 @@ export interface FileRouteTypes {
     | '/share/$token'
     | '/verify-email/$token'
     | '/$workspaceSlug/admin'
+    | '/$workspaceSlug/chat'
     | '/$workspaceSlug/drive'
     | '/$workspaceSlug/knowledge'
     | '/$workspaceSlug/my-tasks'
@@ -339,6 +351,7 @@ export interface FileRouteTypes {
     | '/share/$token'
     | '/verify-email/$token'
     | '/_authed/$workspaceSlug/admin'
+    | '/_authed/$workspaceSlug/chat'
     | '/_authed/$workspaceSlug/drive'
     | '/_authed/$workspaceSlug/knowledge'
     | '/_authed/$workspaceSlug/my-tasks'
@@ -497,6 +510,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedWorkspaceSlugDriveRouteImport
       parentRoute: typeof AuthedWorkspaceSlugRoute
     }
+    '/_authed/$workspaceSlug/chat': {
+      id: '/_authed/$workspaceSlug/chat'
+      path: '/chat'
+      fullPath: '/$workspaceSlug/chat'
+      preLoaderRoute: typeof AuthedWorkspaceSlugChatRouteImport
+      parentRoute: typeof AuthedWorkspaceSlugRoute
+    }
     '/_authed/$workspaceSlug/admin': {
       id: '/_authed/$workspaceSlug/admin'
       path: '/admin'
@@ -605,6 +625,7 @@ const AuthedWorkspaceSlugProjectsProjectIdRouteWithChildren =
 
 interface AuthedWorkspaceSlugRouteChildren {
   AuthedWorkspaceSlugAdminRoute: typeof AuthedWorkspaceSlugAdminRoute
+  AuthedWorkspaceSlugChatRoute: typeof AuthedWorkspaceSlugChatRoute
   AuthedWorkspaceSlugDriveRoute: typeof AuthedWorkspaceSlugDriveRoute
   AuthedWorkspaceSlugKnowledgeRoute: typeof AuthedWorkspaceSlugKnowledgeRoute
   AuthedWorkspaceSlugMyTasksRoute: typeof AuthedWorkspaceSlugMyTasksRoute
@@ -617,6 +638,7 @@ interface AuthedWorkspaceSlugRouteChildren {
 
 const AuthedWorkspaceSlugRouteChildren: AuthedWorkspaceSlugRouteChildren = {
   AuthedWorkspaceSlugAdminRoute: AuthedWorkspaceSlugAdminRoute,
+  AuthedWorkspaceSlugChatRoute: AuthedWorkspaceSlugChatRoute,
   AuthedWorkspaceSlugDriveRoute: AuthedWorkspaceSlugDriveRoute,
   AuthedWorkspaceSlugKnowledgeRoute: AuthedWorkspaceSlugKnowledgeRoute,
   AuthedWorkspaceSlugMyTasksRoute: AuthedWorkspaceSlugMyTasksRoute,

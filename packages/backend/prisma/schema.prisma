@@ -48,6 +48,10 @@ model User {
   timeEntries             TimeEntry[]
   userRates               UserRate[]
   authProviders           AuthProvider[]
+  chatChannelsCreated     ChatChannel[]       @relation("chatChannelsCreated")
+  chatMemberships         ChatChannelMember[]
+  chatMessages            ChatMessage[]
+  chatReactions           ChatReaction[]
 }
 
 model RefreshToken {
@@ -189,10 +193,11 @@ model Workspace {
   attachments Attachment[]
   teamFolders TeamFolder[]
   groups      Group[]
-  settings    WorkspaceSettings?
-  wikiSpaces  WikiSpace[]
-  timeEntries TimeEntry[]
-  userRates   UserRate[]
+  settings     WorkspaceSettings?
+  wikiSpaces   WikiSpace[]
+  timeEntries  TimeEntry[]
+  userRates    UserRate[]
+  chatChannels ChatChannel[]
 }
 
 enum WorkspaceRole {
@@ -746,7 +751,7 @@ model WorkspaceSettings {
   requireAdminApproval Boolean       @default(false)
   allowedEmailDomains  String[]      @default([])
   maxMembers           Int?
-  enabledModules       String[]      @default(["drive", "wiki", "time"])
+  enabledModules       String[]      @default(["drive", "wiki", "time", "chat"])
   updatedAt            DateTime      @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -907,4 +912,80 @@ model UserRate {
 
   @@unique([workspaceId, userId, effectiveFrom])
   @@index([workspaceId, userId])
+}
+
+// ─── Chat ──────────────────────────────────────────────
+
+enum ChatChannelType {
+  PUBLIC
+  PRIVATE
+  DM
+}
+
+model ChatChannel {
+  id          String          @id @default(cuid())
+  workspaceId String
+  name        String?         @db.VarChar(100)
+  description String?         @db.VarChar(500)
+  type        ChatChannelType @default(PUBLIC)
+  createdById String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User                @relation("chatChannelsCreated", fields: [createdById], references: [id])
+  members   ChatChannelMember[]
+  messages  ChatMessage[]
+
+  @@index([workspaceId, type])
+}
+
+model ChatChannelMember {
+  id         String   @id @default(cuid())
+  channelId  String
+  userId     String
+  lastReadAt DateTime @default(now())
+  joinedAt   DateTime @default(now())
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([userId])
+  @@index([channelId])
+}
+
+model ChatMessage {
+  id        String    @id @default(cuid())
+  channelId String
+  userId    String
+  content   String
+  parentId  String?
+  editedAt  DateTime?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  channel   ChatChannel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id])
+  parent    ChatMessage?   @relation("thread", fields: [parentId], references: [id])
+  replies   ChatMessage[]  @relation("thread")
+  reactions ChatReaction[]
+
+  @@index([channelId, createdAt])
+  @@index([parentId])
+  @@index([userId])
+}
+
+model ChatReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String   @db.VarChar(32)
+  createdAt DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
 }

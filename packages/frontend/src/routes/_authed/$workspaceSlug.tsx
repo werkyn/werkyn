@@ -49,7 +49,7 @@ function WorkspaceLayout() {
   const { data: wikiSpacesData } = useWikiSpaces(workspaceId);
   const wikiSpaces = wikiSpacesData?.data ?? [];
   const { data: settingsData } = useWorkspaceSettings(workspaceId);
-  const enabledModules = settingsData?.data?.enabledModules ?? ["drive", "wiki", "time"];
+  const enabledModules = settingsData?.data?.enabledModules ?? ["drive", "wiki", "time", "chat"];
 
   if (!workspace) return null;
 

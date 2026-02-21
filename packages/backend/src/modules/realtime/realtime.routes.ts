@@ -4,9 +4,10 @@ import { z } from "zod";
 import * as realtimeService from "./realtime.service.js";
 
 const WsMessageSchema = z.object({
-  type: z.enum(["subscribe", "unsubscribe", "subscribe_workspace", "unsubscribe_workspace", "ping"]),
+  type: z.enum(["subscribe", "unsubscribe", "subscribe_workspace", "unsubscribe_workspace", "subscribe_channel", "unsubscribe_channel", "ping"]),
   projectId: z.string().optional(),
   workspaceId: z.string().optional(),
+  channelId: z.string().optional(),
 });
 
 export default async function realtimeRoutes(fastify: FastifyInstance) {
@@ -65,7 +66,7 @@ export default async function realtimeRoutes(fastify: FastifyInstance) {
           const result = WsMessageSchema.safeParse(msg);
           if (!result.success) return;
 
-          const { type, projectId, workspaceId } = result.data;
+          const { type, projectId, workspaceId, channelId } = result.data;
 
           switch (type) {
             case "subscribe":
@@ -116,6 +117,32 @@ export default async function realtimeRoutes(fastify: FastifyInstance) {
                 realtimeService.unsubscribeWorkspace(socket, workspaceId);
                 socket.send(
                   JSON.stringify({ event: "unsubscribed_workspace", workspaceId }),
+                );
+              }
+              break;
+
+            case "subscribe_channel":
+              if (channelId) {
+                const ok = await realtimeService.subscribeChannel(
+                  socket,
+                  channelId,
+                  fastify.prisma,
+                );
+                socket.send(
+                  JSON.stringify({
+                    event: "subscribed_channel",
+                    channelId,
+                    success: ok,
+                  }),
+                );
+              }
+              break;
+
+            case "unsubscribe_channel":
+              if (channelId) {
+                realtimeService.unsubscribeChannel(socket, channelId);
+                socket.send(
+                  JSON.stringify({ event: "unsubscribed_channel", channelId }),
                 );
               }
               break;
