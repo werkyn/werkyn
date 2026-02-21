@@ -9,6 +9,7 @@ import {
   CheckSquare,
   HardDrive,
   Clock,
+  MessageSquare,
   Plus,
   PanelLeftClose,
   UserPlus,
@@ -25,7 +26,7 @@ interface SidebarProps {
   onCreateProject?: () => void;
 }
 
-export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["drive", "wiki", "time"], onCreateProject }: SidebarProps) {
+export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["drive", "wiki", "time", "chat"], onCreateProject }: SidebarProps) {
   const { workspaceSlug } = useParams({ strict: false }) as { workspaceSlug: string };
   const { projectId } = useParams({ strict: false }) as { projectId?: string };
   const workspaces = useAuthStore((s) => s.workspaces);
@@ -111,6 +112,18 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
           >
             <Clock className="h-4 w-4" />
             Time
+          </Link>
+        )}
+
+        {enabledModules.includes("chat") && (
+          <Link
+            to="/$workspaceSlug/chat"
+            params={{ workspaceSlug }}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
+            activeProps={{ className: "bg-accent font-medium" }}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Chat
           </Link>
         )}
 

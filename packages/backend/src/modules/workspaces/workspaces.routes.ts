@@ -113,11 +113,11 @@ export default async function workspacesRoutes(fastify: FastifyInstance) {
     handler: getMyTasksHandler,
   });
 
-  // GET /api/workspaces/:wid/settings — Get workspace settings (admin only)
+  // GET /api/workspaces/:wid/settings — Get workspace settings
   fastify.route({
     method: "GET",
     url: "/:wid/settings",
-    preHandler: [authenticate, authorize("ADMIN")],
+    preHandler: [authenticate, authorize("ADMIN", "MEMBER", "VIEWER")],
     handler: getWorkspaceSettingsHandler,
   });
 

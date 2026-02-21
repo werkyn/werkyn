@@ -8,6 +8,6 @@ export const UpdateWorkspaceSettingsSchema = z.object({
     .array(z.string().min(1).max(255))
     .optional(),
   maxMembers: z.number().int().positive().nullable().optional(),
-  enabledModules: z.array(z.enum(["drive", "wiki", "time"])).optional(),
+  enabledModules: z.array(z.enum(["drive", "wiki", "time", "chat"])).optional(),
 });
 export type UpdateWorkspaceSettingsInput = z.infer<typeof UpdateWorkspaceSettingsSchema>;
