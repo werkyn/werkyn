@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { z } from "zod";
 import { useAuthStore } from "@/stores/auth-store";
@@ -15,6 +15,7 @@ export const Route = createFileRoute("/auth/oidc/complete")({
 function OidcCompletePage() {
   const { return_url } = Route.useSearch();
   const navigate = useNavigate();
+  const router = useRouter();
 
   useEffect(() => {
     // The refresh token cookie was set by the backend callback.
@@ -24,18 +25,26 @@ function OidcCompletePage() {
       .refresh()
       .then((success) => {
         if (success) {
-          // Navigate to the return URL or home
-          const target = return_url || "/";
-          if (target.startsWith("/")) {
-            navigate({ to: target });
-          } else {
-            navigate({ to: "/" });
+          // Force TanStack Router to re-evaluate all beforeLoad hooks
+          // so they pick up the freshly-populated auth store.
+          router.invalidate();
+
+          // Navigate directly to the workspace if return_url is "/" to
+          // avoid a stale-context race through the root redirect chain.
+          let target = return_url || "/";
+          if (target === "/") {
+            const { workspaces } = useAuthStore.getState();
+            if (workspaces.length > 0) {
+              target = `/${workspaces[0].workspace.slug}`;
+            }
           }
+
+          navigate({ to: target.startsWith("/") ? target : "/" });
         } else {
           navigate({ to: "/login", search: { sso_error: "Failed to complete sign-in" } });
         }
       });
-  }, [navigate, return_url]);
+  }, [navigate, return_url, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

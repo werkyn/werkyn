@@ -21,10 +21,14 @@ function WorkspaceDashboard() {
   const permissions = usePermissions(membership, user?.id);
   const [createOpen, setCreateOpen] = useState(false);
 
-  useWorkspaceRealtime(workspace.id);
+  const workspaceId = workspace?.id ?? "";
 
-  const { data, isLoading } = useDashboard(workspace.id);
+  useWorkspaceRealtime(workspaceId);
+
+  const { data, isLoading } = useDashboard(workspaceId);
   const projects = data?.data ?? [];
+
+  if (!workspace) return null;
 
   return (
     <div className="p-6 space-y-6">
@@ -43,7 +47,7 @@ function WorkspaceDashboard() {
         )}
       </div>
 
-      <MyTasksWidget workspaceId={workspace.id} workspaceSlug={workspaceSlug} />
+      <MyTasksWidget workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
 
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -66,7 +70,7 @@ function WorkspaceDashboard() {
       <CreateProjectDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        workspaceId={workspace.id}
+        workspaceId={workspaceId}
       />
     </div>
   );
