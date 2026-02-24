@@ -1,7 +1,18 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
+import path from "node:path";
 import * as attachmentsService from "./attachments.service.js";
 import type { AttachmentQueryInput, LinkAttachmentInput } from "@pm/shared";
 import { ValidationError } from "../../utils/errors.js";
+
+const BLOCKED_EXTENSIONS = [
+  ".exe",
+  ".bat",
+  ".cmd",
+  ".com",
+  ".scr",
+  ".pif",
+  ".msi",
+];
 
 export async function uploadAttachmentHandler(
   request: FastifyRequest,
@@ -12,6 +23,11 @@ export async function uploadAttachmentHandler(
 
   if (!data) {
     throw new ValidationError("No file uploaded");
+  }
+
+  const ext = path.extname(data.filename).toLowerCase();
+  if (BLOCKED_EXTENSIONS.includes(ext)) {
+    throw new ValidationError("This file type is not allowed");
   }
 
   const entityType =

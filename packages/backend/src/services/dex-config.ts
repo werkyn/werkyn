@@ -61,7 +61,7 @@ export async function generateDexConfig(prisma: PrismaClient): Promise<string> {
         id: "werkyn",
         name: "Werkyn",
         redirectURIs: [`${env.FRONTEND_URL}/api/auth/oidc/callback`],
-        secret: env.JWT_SECRET,
+        secret: env.DEX_CLIENT_SECRET,
       },
     ],
     connectors: ssoConfig.connectors.map((c) => {

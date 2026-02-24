@@ -132,12 +132,11 @@ const AuthedWorkspaceSlugDriveRoute =
     path: '/drive',
     getParentRoute: () => AuthedWorkspaceSlugRoute,
   } as any)
-const AuthedWorkspaceSlugChatRoute =
-  AuthedWorkspaceSlugChatRouteImport.update({
-    id: '/chat',
-    path: '/chat',
-    getParentRoute: () => AuthedWorkspaceSlugRoute,
-  } as any)
+const AuthedWorkspaceSlugChatRoute = AuthedWorkspaceSlugChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AuthedWorkspaceSlugRoute,
+} as any)
 const AuthedWorkspaceSlugAdminRoute =
   AuthedWorkspaceSlugAdminRouteImport.update({
     id: '/admin',

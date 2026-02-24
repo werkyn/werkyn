@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logger } from "../utils/logger.js";
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
@@ -43,14 +44,24 @@ const envSchema = z.object({
   DEX_CONFIG_DIR: z.string().default("/app/data/dex"),
   DEX_INTERNAL_PORT: z.coerce.number().default(5556),
   DEX_STORAGE_TYPE: z.enum(["sqlite3", "postgres"]).default("sqlite3"),
+  DEX_CLIENT_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error("Invalid environment variables:");
-  console.error(parsed.error.flatten().fieldErrors);
+  logger.fatal({ errors: parsed.error.flatten().fieldErrors }, "Invalid environment variables");
   process.exit(1);
 }
 
-export const env = parsed.data;
+// Default COOKIE_SECURE to true in production if not explicitly set
+if (!process.env.COOKIE_SECURE && parsed.data.NODE_ENV === "production") {
+  parsed.data.COOKIE_SECURE = true;
+}
+
+// Default DEX_CLIENT_SECRET to JWT_SECRET if not explicitly set
+if (!parsed.data.DEX_CLIENT_SECRET) {
+  parsed.data.DEX_CLIENT_SECRET = parsed.data.JWT_SECRET;
+}
+
+export const env = parsed.data as typeof parsed.data & { DEX_CLIENT_SECRET: string };

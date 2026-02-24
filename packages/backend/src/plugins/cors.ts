@@ -4,8 +4,17 @@ import type { FastifyInstance } from "fastify";
 import { env } from "../config/env.js";
 
 export default fp(async (fastify: FastifyInstance) => {
+  const origins = env.CORS_ORIGIN.split(",");
+
+  if (origins.includes("*")) {
+    throw new Error(
+      'CORS_ORIGIN="*" is not allowed when credentials are enabled. ' +
+        "Set CORS_ORIGIN to specific origins (e.g. http://localhost:5173).",
+    );
+  }
+
   await fastify.register(cors, {
-    origin: env.CORS_ORIGIN.split(","),
+    origin: origins,
     credentials: true,
   });
 });

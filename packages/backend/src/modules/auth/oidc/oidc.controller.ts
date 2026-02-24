@@ -72,8 +72,12 @@ export async function oidcCallbackHandler(
 
     // Redirect to the OIDC complete page
     const returnUrl = result.returnUrl || "/";
+    const safeReturnUrl =
+      returnUrl.startsWith("/") && !returnUrl.startsWith("//")
+        ? returnUrl
+        : "/";
     return reply.redirect(
-      `${env.FRONTEND_URL}/auth/oidc/complete?return_url=${encodeURIComponent(returnUrl)}`,
+      `${env.FRONTEND_URL}/auth/oidc/complete?return_url=${encodeURIComponent(safeReturnUrl)}`,
     );
   } catch (err) {
     const message =

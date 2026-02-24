@@ -1,7 +1,15 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import path from "node:path";
 import crypto from "node:crypto";
+import { fileTypeFromBuffer } from "file-type";
 import { ValidationError } from "../../utils/errors.js";
+
+const ALLOWED_AVATAR_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+];
 
 export async function uploadHandler(
   request: FastifyRequest,
@@ -20,6 +28,15 @@ export async function uploadHandler(
   const fileId = crypto.randomUUID();
 
   const buffer = await data.toBuffer();
+
+  if (purpose === "avatar") {
+    const detected = await fileTypeFromBuffer(buffer);
+    if (!detected || !ALLOWED_AVATAR_TYPES.includes(detected.mime)) {
+      throw new ValidationError(
+        "Avatar must be a JPEG, PNG, GIF, or WebP image",
+      );
+    }
+  }
 
   const storagePath = await request.server.storage.save(
     purpose === "avatar" ? "avatars" : "uploads",

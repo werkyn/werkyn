@@ -40,6 +40,7 @@ export default async function invitesRoutes(fastify: FastifyInstance) {
   fastify.route({
     method: "GET",
     url: "/invites/:token",
+    config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
     handler: getInviteHandler,
   });
 
