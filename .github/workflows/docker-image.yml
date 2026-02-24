@@ -1,0 +1,43 @@
+  name: Docker Image CI                                                                                                          
+   
+  on:                                                                                                                            
+    push:         
+      branches: ["main"]
+    pull_request:
+      branches: ["main"]
+
+  permissions:
+    contents: read
+    packages: write
+
+  jobs:
+    build:
+      runs-on: ubuntu-latest
+
+      steps:
+        - uses: actions/checkout@v4
+
+        - name: Log in to GHCR
+          uses: docker/login-action@v3
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+        - name: Generate image tags
+          id: meta
+          uses: docker/metadata-action@v5
+          with:
+            images: ghcr.io/${{ github.repository }}
+            tags: |
+              type=ref,event=branch
+              type=ref,event=pr
+              type=sha,prefix=
+
+        - name: Build and push
+          uses: docker/build-push-action@v6
+          with:
+            context: .
+            push: true
+            tags: ${{ steps.meta.outputs.tags }}
+            labels: ${{ steps.meta.outputs.labels }}
