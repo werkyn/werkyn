@@ -140,7 +140,7 @@ export async function handleOidcCallback(
   await prisma.oidcState.delete({ where: { id: oidcState.id } });
 
   const as = await getAuthServer();
-  const clientAuth = oauth.ClientSecretPost(env.JWT_SECRET);
+  const clientAuth = oauth.ClientSecretPost(env.DEX_CLIENT_SECRET);
 
   // Exchange code for tokens
   // Build callback URL params as the browser would have delivered them
@@ -157,6 +157,11 @@ export async function handleOidcCallback(
     stateParam,
   );
 
+  const isDev =
+    env.NODE_ENV === "development" ||
+    new URL(DEX_INTERNAL_BASE()).hostname === "127.0.0.1" ||
+    new URL(DEX_INTERNAL_BASE()).hostname === "localhost";
+
   const tokenResponse = await oauth.authorizationCodeGrantRequest(
     as,
     client,
@@ -164,7 +169,7 @@ export async function handleOidcCallback(
     callbackParams,
     REDIRECT_URI(),
     oidcState.codeVerifier,
-    { [allowInsecureRequests]: true },
+    isDev ? { [allowInsecureRequests]: true } : {},
   );
 
   // processAuthorizationCodeResponse will throw ResponseBodyError on error

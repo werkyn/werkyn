@@ -3,6 +3,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import DOMPurify from "dompurify";
+import { SafeHtml } from "@/components/safe-html";
 import { useUpdateTask } from "../api";
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 
@@ -57,11 +58,9 @@ export function TaskDescription({
 
   if (!canEdit && description) {
     return (
-      <div
+      <SafeHtml
         className="prose prose-sm dark:prose-invert max-w-none"
-        dangerouslySetInnerHTML={{
-          __html: DOMPurify.sanitize(description),
-        }}
+        html={description}
       />
     );
   }

@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
+import { logger } from "./logger.js";
 
 let transporter: nodemailer.Transporter;
 
@@ -62,11 +63,11 @@ export async function sendVerificationEmail(
     if (env.NODE_ENV === "development") {
       const previewUrl = nodemailer.getTestMessageUrl(info);
       if (previewUrl) {
-        console.log("Preview URL:", previewUrl);
+        logger.info({ previewUrl }, "Email preview available");
       }
     }
   } catch (error) {
-    console.error("Failed to send verification email:", error);
+    logger.error({ err: error }, "Failed to send verification email");
   }
 }
 
@@ -89,10 +90,10 @@ export async function sendPasswordResetEmail(
     if (env.NODE_ENV === "development") {
       const previewUrl = nodemailer.getTestMessageUrl(info);
       if (previewUrl) {
-        console.log("Preview URL:", previewUrl);
+        logger.info({ previewUrl }, "Email preview available");
       }
     }
   } catch (error) {
-    console.error("Failed to send password reset email:", error);
+    logger.error({ err: error }, "Failed to send password reset email");
   }
 }
