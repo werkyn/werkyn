@@ -6,5 +6,10 @@ export default fp(async (fastify: FastifyInstance) => {
   await fastify.register(rateLimit, {
     max: 100,
     timeWindow: "1 minute",
+    errorResponseBuilder: (_req, context) => ({
+      statusCode: 429,
+      error: "Too Many Requests",
+      message: `Rate limit exceeded, retry in ${Math.ceil(context.ttl / 1000)} seconds`,
+    }),
   });
 });
