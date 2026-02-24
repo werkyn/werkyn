@@ -46,6 +46,20 @@ export default fp(async (fastify: FastifyInstance) => {
         });
       }
 
+      // Errors with an explicit statusCode (e.g. rate-limit 429)
+      const statusCode =
+        "statusCode" in error && typeof error.statusCode === "number"
+          ? error.statusCode
+          : 500;
+
+      if (statusCode < 500) {
+        return reply.status(statusCode).send({
+          statusCode,
+          error: error.message,
+          message: error.message,
+        });
+      }
+
       // Unhandled errors
       request.log.error(error);
 
