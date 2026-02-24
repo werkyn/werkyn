@@ -104,6 +104,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   fastify.route({
     method: "POST",
     url: "/reset-password/:token",
+    config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
     preHandler: [validate(ResetPasswordSchema)],
     handler: resetPasswordHandler,
   });
@@ -112,6 +113,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   fastify.route({
     method: "POST",
     url: "/verify-email/:token",
+    config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
     handler: verifyEmailHandler,
   });
 

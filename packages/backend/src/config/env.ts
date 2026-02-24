@@ -53,4 +53,9 @@ if (!parsed.success) {
   process.exit(1);
 }
 
+// Default COOKIE_SECURE to true in production if not explicitly set
+if (!process.env.COOKIE_SECURE && parsed.data.NODE_ENV === "production") {
+  parsed.data.COOKIE_SECURE = true;
+}
+
 export const env = parsed.data;

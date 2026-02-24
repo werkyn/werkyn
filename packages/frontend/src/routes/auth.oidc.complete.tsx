@@ -39,7 +39,8 @@ function OidcCompletePage() {
             }
           }
 
-          navigate({ to: target.startsWith("/") ? target : "/" });
+          const isSafePath = target.startsWith("/") && !target.startsWith("//");
+          navigate({ to: isSafePath ? target : "/" });
         } else {
           navigate({ to: "/login", search: { sso_error: "Failed to complete sign-in" } });
         }
