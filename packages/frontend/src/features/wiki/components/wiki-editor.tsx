@@ -5,6 +5,7 @@ import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { Block } from "@blocknote/core";
+import { useAuthStore } from "@/stores/auth-store";
 
 function useIsDark() {
   return useSyncExternalStore(
@@ -30,6 +31,30 @@ export function WikiEditor({ initialContent, readOnly = false, onChange }: WikiE
 
   const editor = useCreateBlockNote({
     initialContent: (initialContent as Block[] | undefined) ?? undefined,
+    uploadFile: async (file: File) => {
+      const token = useAuthStore.getState().accessToken;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("purpose", "general");
+
+      const response = await fetch(`${baseUrl}/uploads`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Image upload failed");
+      }
+
+      const result = (await response.json()) as { data: { url: string } };
+      return result.data.url;
+    },
   });
 
   const handleChange = useCallback(() => {
