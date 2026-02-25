@@ -42,6 +42,7 @@ import wikiRoutes from "./modules/wiki/wiki.routes.js";
 import timeRoutes from "./modules/time/time.routes.js";
 import ssoRoutes from "./modules/sso/sso.routes.js";
 import chatRoutes from "./modules/chat/chat.routes.js";
+import backupRoutes from "./modules/backup/backup.routes.js";
 import { broadcast, broadcastToWorkspace, broadcastToUser, broadcastToChannel } from "./modules/realtime/realtime.service.js";
 import { env } from "./config/env.js";
 
@@ -94,6 +95,7 @@ export async function buildApp() {
   await app.register(timeRoutes, { prefix: "/api" });
   await app.register(ssoRoutes, { prefix: "/api/admin/sso" });
   await app.register(chatRoutes, { prefix: "/api/chat" });
+  await app.register(backupRoutes, { prefix: "/api/workspaces" });
 
   // Decorate with broadcast functions for use by other modules
   app.decorate("broadcast", broadcast);

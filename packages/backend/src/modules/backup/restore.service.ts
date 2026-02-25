@@ -1,0 +1,527 @@
+import type { PrismaClient } from "@prisma/client";
+import { BackupFileSchema, type BackupFile, type RestoreSummary } from "@pm/shared";
+import { IdMapper, UserMapper } from "./id-mapper.js";
+import { ValidationError } from "../../utils/errors.js";
+
+/** Parse and validate a backup JSON buffer. */
+function parseBackupFile(buffer: Buffer): BackupFile {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(buffer.toString("utf-8"));
+  } catch {
+    throw new ValidationError("Invalid JSON file");
+  }
+  const result = BackupFileSchema.safeParse(raw);
+  if (!result.success) {
+    const issues = result.error.issues.slice(0, 5).map((i) => i.message).join("; ");
+    throw new ValidationError(`Invalid backup file format: ${issues}`);
+  }
+  return result.data;
+}
+
+/** Build a UserMapper from backup metadata + workspace members. */
+async function buildUserMapper(
+  prisma: PrismaClient,
+  workspaceId: string,
+  adminUserId: string,
+  backup: BackupFile,
+): Promise<UserMapper> {
+  const mapper = new UserMapper(adminUserId);
+
+  const wsMembers = await prisma.workspaceMember.findMany({
+    where: { workspaceId },
+    include: {
+      user: { select: { id: true, email: true, displayName: true } },
+    },
+  });
+
+  const membersByEmail = new Map(
+    wsMembers.map((m) => [m.user.email.toLowerCase(), m.user]),
+  );
+
+  for (const ref of backup.metadata.userRefs) {
+    const match = membersByEmail.get(ref.email.toLowerCase());
+    mapper.addMapping(
+      ref.originalId,
+      ref.email,
+      ref.displayName,
+      match?.id ?? null,
+      match?.displayName ?? null,
+    );
+  }
+
+  return mapper;
+}
+
+/** Generate a preview summary without modifying the database. */
+export async function previewRestore(
+  prisma: PrismaClient,
+  workspaceId: string,
+  adminUserId: string,
+  fileBuffer: Buffer,
+): Promise<RestoreSummary> {
+  const backup = parseBackupFile(fileBuffer);
+  const userMapper = await buildUserMapper(prisma, workspaceId, adminUserId, backup);
+
+  let statuses = 0;
+  let labels = 0;
+  let customFields = 0;
+  let tasks = 0;
+  let subtasks = 0;
+  let comments = 0;
+  let activityLogs = 0;
+  let messages = 0;
+  let reactions = 0;
+
+  for (const p of backup.projects) {
+    statuses += p.statuses.length;
+    labels += p.labels.length;
+    customFields += p.customFields.length;
+    tasks += p.tasks.length;
+    for (const t of p.tasks) {
+      subtasks += t.subtasks.length;
+      comments += t.comments.length;
+      activityLogs += t.activityLogs.length;
+    }
+  }
+
+  for (const c of backup.channels) {
+    messages += c.messages.length;
+    for (const m of c.messages) {
+      reactions += m.reactions.length;
+    }
+  }
+
+  let wikiPages = 0;
+  let wikiComments = 0;
+  for (const ws of backup.wikiSpaces) {
+    wikiPages += ws.pages.length;
+    for (const p of ws.pages) {
+      wikiComments += p.comments.length;
+    }
+  }
+
+  return {
+    projects: backup.projects.length,
+    statuses,
+    labels,
+    customFields,
+    tasks,
+    subtasks,
+    comments,
+    activityLogs,
+    channels: backup.channels.length,
+    messages,
+    reactions,
+    wikiSpaces: backup.wikiSpaces.length,
+    wikiPages,
+    wikiComments,
+    userMappings: userMapper.getMappings().map((m) => ({
+      originalEmail: m.originalEmail,
+      originalName: m.originalName,
+      mappedUserId: m.resolvedId,
+      mappedName: m.resolvedName,
+    })),
+    warnings: userMapper.getWarnings(),
+  };
+}
+
+/** Restore a backup file into the workspace, creating new entities with new IDs. */
+export async function executeRestore(
+  prisma: PrismaClient,
+  workspaceId: string,
+  adminUserId: string,
+  fileBuffer: Buffer,
+): Promise<RestoreSummary> {
+  const backup = parseBackupFile(fileBuffer);
+  const userMapper = await buildUserMapper(prisma, workspaceId, adminUserId, backup);
+  const idMapper = new IdMapper();
+
+  const counts = {
+    projects: 0,
+    statuses: 0,
+    labels: 0,
+    customFields: 0,
+    tasks: 0,
+    subtasks: 0,
+    comments: 0,
+    activityLogs: 0,
+    channels: 0,
+    messages: 0,
+    reactions: 0,
+    wikiSpaces: 0,
+    wikiPages: 0,
+    wikiComments: 0,
+  };
+  const warnings = [...userMapper.getWarnings()];
+
+  await prisma.$transaction(
+    async (tx) => {
+      // ─── Restore Projects ───────────────────────────────
+
+      for (const pEntry of backup.projects) {
+        const newProject = await tx.project.create({
+          data: {
+            workspaceId,
+            name: pEntry.project.name,
+            description: pEntry.project.description,
+            color: pEntry.project.color,
+            icon: pEntry.project.icon,
+          },
+        });
+        counts.projects++;
+
+        // Statuses
+        for (const s of pEntry.statuses) {
+          const newStatus = await tx.statusColumn.create({
+            data: {
+              projectId: newProject.id,
+              name: s.name,
+              color: s.color,
+              position: s.position,
+              isCompletion: s.isCompletion,
+            },
+          });
+          idMapper.set(s._originalId, newStatus.id);
+          counts.statuses++;
+        }
+
+        // Labels
+        for (const l of pEntry.labels) {
+          const newLabel = await tx.label.create({
+            data: {
+              projectId: newProject.id,
+              name: l.name,
+              color: l.color,
+            },
+          });
+          idMapper.set(l._originalId, newLabel.id);
+          counts.labels++;
+        }
+
+        // Custom Fields
+        for (const f of pEntry.customFields) {
+          const newField = await tx.customField.create({
+            data: {
+              projectId: newProject.id,
+              name: f.name,
+              type: f.type as any,
+              options: f.options as any,
+              required: f.required,
+              position: f.position,
+            },
+          });
+          idMapper.set(f._originalId, newField.id);
+          counts.customFields++;
+        }
+
+        // Members
+        for (const m of pEntry.members) {
+          const userId = userMapper.resolveOptional(m.userRef);
+          if (!userId) continue;
+          // Ensure user is workspace member
+          const isMember = await tx.workspaceMember.findUnique({
+            where: { userId_workspaceId: { userId, workspaceId } },
+          });
+          if (!isMember) continue;
+          await tx.projectMember.upsert({
+            where: { projectId_userId: { projectId: newProject.id, userId } },
+            update: {},
+            create: { projectId: newProject.id, userId },
+          });
+        }
+
+        // Tasks
+        for (const t of pEntry.tasks) {
+          const statusId = idMapper.get(t.statusRef);
+          if (!statusId) {
+            warnings.push(
+              `Skipped task "${t.title}" — status ref ${t.statusRef} not found`,
+            );
+            continue;
+          }
+
+          const newTask = await tx.task.create({
+            data: {
+              projectId: newProject.id,
+              statusId,
+              title: t.title,
+              description: t.description,
+              priority: t.priority as any,
+              position: t.position,
+              dueDate: t.dueDate,
+              startDate: t.startDate,
+            },
+          });
+          idMapper.set(t._originalId, newTask.id);
+          counts.tasks++;
+
+          // Assignees
+          for (const aRef of t.assignees) {
+            const userId = userMapper.resolveOptional(aRef);
+            if (!userId) continue;
+            await tx.taskAssignee.create({
+              data: { taskId: newTask.id, userId },
+            }).catch(() => {
+              // skip duplicates or FK violations
+            });
+          }
+
+          // Labels
+          for (const lRef of t.labels) {
+            const labelId = idMapper.get(lRef);
+            if (!labelId) continue;
+            await tx.taskLabel.create({
+              data: { taskId: newTask.id, labelId },
+            }).catch(() => {});
+          }
+
+          // Subtasks
+          for (const s of t.subtasks) {
+            const newSubtask = await tx.subtask.create({
+              data: {
+                taskId: newTask.id,
+                title: s.title,
+                completed: s.completed,
+                position: s.position,
+                assigneeId: userMapper.resolveOptional(s.assigneeRef),
+                dueDate: s.dueDate,
+              },
+            });
+            idMapper.set(s._originalId, newSubtask.id);
+            counts.subtasks++;
+          }
+
+          // Custom field values
+          for (const v of t.customFieldValues) {
+            const fieldId = idMapper.get(v.fieldRef);
+            if (!fieldId) continue;
+            await tx.customFieldValue.create({
+              data: {
+                taskId: newTask.id,
+                fieldId,
+                value: v.value as any,
+              },
+            }).catch(() => {});
+          }
+
+          // Comments
+          for (const c of t.comments) {
+            await tx.comment.create({
+              data: {
+                taskId: newTask.id,
+                authorId: userMapper.resolveOptional(c.authorRef),
+                body: c.body,
+                createdAt: new Date(c.createdAt),
+              },
+            });
+            counts.comments++;
+          }
+
+          // Activity logs
+          for (const a of t.activityLogs) {
+            await tx.activityLog.create({
+              data: {
+                taskId: newTask.id,
+                action: a.action,
+                details: a.details as any,
+                actorId: userMapper.resolveOptional(a.actorRef),
+                createdAt: new Date(a.createdAt),
+              },
+            });
+            counts.activityLogs++;
+          }
+        }
+
+        // Task dependencies (second pass — all tasks exist now)
+        for (const t of pEntry.tasks) {
+          const blockedTaskId = idMapper.get(t._originalId);
+          if (!blockedTaskId) continue;
+          for (const dep of t.dependencies) {
+            const blockingTaskId = idMapper.get(dep.blockingTaskRef);
+            if (!blockingTaskId) {
+              warnings.push(
+                `Skipped dependency for task "${t.title}" — blocking task ref ${dep.blockingTaskRef} not found`,
+              );
+              continue;
+            }
+            await tx.taskDependency.create({
+              data: { blockedTaskId, blockingTaskId },
+            }).catch(() => {});
+          }
+        }
+      }
+
+      // ─── Restore Channels ───────────────────────────────
+
+      for (const cEntry of backup.channels) {
+        const newChannel = await tx.chatChannel.create({
+          data: {
+            workspaceId,
+            name: cEntry.channel.name,
+            description: cEntry.channel.description,
+            type: cEntry.channel.type,
+            createdById: adminUserId,
+          },
+        });
+        counts.channels++;
+
+        // Members
+        for (const m of cEntry.members) {
+          const userId = userMapper.resolveOptional(m.userRef);
+          if (!userId) continue;
+          const isMember = await tx.workspaceMember.findUnique({
+            where: { userId_workspaceId: { userId, workspaceId } },
+          });
+          if (!isMember) continue;
+          await tx.chatChannelMember.upsert({
+            where: { channelId_userId: { channelId: newChannel.id, userId } },
+            update: {},
+            create: { channelId: newChannel.id, userId },
+          });
+        }
+
+        // Ensure admin is a member
+        await tx.chatChannelMember.upsert({
+          where: {
+            channelId_userId: { channelId: newChannel.id, userId: adminUserId },
+          },
+          update: {},
+          create: { channelId: newChannel.id, userId: adminUserId },
+        });
+
+        // Messages (chronological order so parents exist before replies)
+        for (const m of cEntry.messages) {
+          const parentId = m.parentRef ? idMapper.get(m.parentRef) : null;
+          // If parent ref exists but wasn't mapped yet, skip (shouldn't happen with chronological order)
+          if (m.parentRef && !parentId) {
+            warnings.push(
+              `Skipped message parent ref ${m.parentRef} — parent not found`,
+            );
+          }
+
+          const newMessage = await tx.chatMessage.create({
+            data: {
+              channelId: newChannel.id,
+              userId: userMapper.resolve(m.userRef),
+              content: m.content,
+              parentId: parentId ?? undefined,
+              createdAt: new Date(m.createdAt),
+            },
+          });
+          idMapper.set(m._originalId, newMessage.id);
+          counts.messages++;
+
+          // Reactions
+          for (const r of m.reactions) {
+            const userId = userMapper.resolveOptional(r.userRef);
+            if (!userId) continue;
+            await tx.chatReaction.create({
+              data: {
+                messageId: newMessage.id,
+                userId,
+                emoji: r.emoji,
+              },
+            }).catch(() => {});
+            counts.reactions++;
+          }
+        }
+      }
+      // ─── Restore Wiki Spaces ─────────────────────────────
+
+      // Determine starting position for new wiki spaces
+      const lastWikiSpace = await tx.wikiSpace.findFirst({
+        where: { workspaceId },
+        orderBy: { position: "desc" },
+        select: { position: true },
+      });
+      let wikiSpacePosition = (lastWikiSpace?.position ?? -1) + 1;
+
+      for (const wsEntry of backup.wikiSpaces) {
+        const slug =
+          wsEntry.space.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "")
+            .slice(0, 80) +
+          "-" +
+          Date.now().toString(36);
+
+        const newSpace = await tx.wikiSpace.create({
+          data: {
+            workspaceId,
+            name: wsEntry.space.name,
+            slug,
+            description: wsEntry.space.description,
+            icon: wsEntry.space.icon,
+            position: wikiSpacePosition++,
+          },
+        });
+        counts.wikiSpaces++;
+
+        // First pass: create all pages with parentId = null
+        for (const p of wsEntry.pages) {
+          const newPage = await tx.wikiPage.create({
+            data: {
+              spaceId: newSpace.id,
+              title: p.title,
+              content: p.content as any,
+              icon: p.icon,
+              position: p.position,
+              parentId: null,
+              createdById: userMapper.resolve(p.createdByRef ?? ""),
+            },
+          });
+          idMapper.set(p._originalId, newPage.id);
+          counts.wikiPages++;
+
+          // Comments
+          for (const c of p.comments) {
+            await tx.wikiPageComment.create({
+              data: {
+                pageId: newPage.id,
+                authorId: userMapper.resolve(c.authorRef ?? ""),
+                body: c.body,
+                resolved: c.resolved,
+                highlightId: c.highlightId,
+                selectionStart: c.selectionStart as any,
+                selectionEnd: c.selectionEnd as any,
+                createdAt: new Date(c.createdAt),
+              },
+            });
+            counts.wikiComments++;
+          }
+        }
+
+        // Second pass: set parentId for pages that have a parentRef
+        for (const p of wsEntry.pages) {
+          if (!p.parentRef) continue;
+          const newPageId = idMapper.get(p._originalId);
+          const newParentId = idMapper.get(p.parentRef);
+          if (!newPageId || !newParentId) {
+            warnings.push(
+              `Skipped parent link for wiki page "${p.title}" — parent ref ${p.parentRef} not found`,
+            );
+            continue;
+          }
+          await tx.wikiPage.update({
+            where: { id: newPageId },
+            data: { parentId: newParentId },
+          });
+        }
+      }
+    },
+    { timeout: 120_000 },
+  );
+
+  return {
+    ...counts,
+    userMappings: userMapper.getMappings().map((m) => ({
+      originalEmail: m.originalEmail,
+      originalName: m.originalName,
+      mappedUserId: m.resolvedId,
+      mappedName: m.resolvedName,
+    })),
+    warnings,
+  };
+}
