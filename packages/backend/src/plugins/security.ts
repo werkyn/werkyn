@@ -16,6 +16,8 @@ export default fp(async (fastify: FastifyInstance) => {
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],
+        upgradeInsecureRequests:
+          process.env.COOKIE_SECURE === "true" ? [] : null,
       },
     },
   });
