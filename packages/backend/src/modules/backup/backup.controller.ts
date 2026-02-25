@@ -11,8 +11,8 @@ export async function exportHandler(
   const { wid } = request.params as { wid: string };
   const body = request.body as BackupExportRequest;
 
-  if (body.projects.length === 0 && body.channels.length === 0) {
-    throw new ValidationError("Select at least one project or channel to export");
+  if (body.projects.length === 0 && body.channels.length === 0 && body.wikiSpaces.length === 0) {
+    throw new ValidationError("Select at least one project, channel, or wiki space to export");
   }
 
   const backup = await exportBackup(request.server.prisma, wid, body);

@@ -10,9 +10,11 @@ import {
   ChevronRight,
   AlertTriangle,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import { useProjects } from "@/features/projects/api";
 import { useChannels, type ChatChannel } from "@/features/chat/api";
+import { useWikiSpaces } from "@/features/wiki/api";
 import { useExportBackup, usePreviewRestore, useExecuteRestore } from "../backup-api";
 import type { BackupExportRequest, RestoreSummary } from "@pm/shared";
 
@@ -168,6 +170,72 @@ function ChannelItem({
   );
 }
 
+// ─── Wiki Space Selection Item ───────────────────────────
+
+interface WikiSpaceOption {
+  spaceId: string;
+  name: string;
+  includeComments: boolean;
+  selected: boolean;
+}
+
+function WikiSpaceItem({
+  item,
+  onChange,
+}: {
+  item: WikiSpaceOption;
+  onChange: (updated: WikiSpaceOption) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const toggle = (key: keyof WikiSpaceOption) =>
+    onChange({ ...item, [key]: !item[key] });
+
+  return (
+    <div className="border rounded-md p-3">
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={item.selected}
+          onChange={() => toggle("selected")}
+          className="h-4 w-4 rounded border-border"
+        />
+        <span className="text-sm font-medium flex-1">{item.name}</span>
+        {item.selected && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {expanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </button>
+        )}
+      </div>
+      {item.selected && expanded && (
+        <div className="mt-2 ml-6 grid grid-cols-2 gap-1.5">
+          {(
+            [
+              ["includeComments", "Comments"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={item[key] as boolean}
+                onChange={() => toggle(key)}
+                className="h-3.5 w-3.5 rounded border-border"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Restore Summary Display ────────────────────────────
 
 function SummaryDisplay({ summary }: { summary: RestoreSummary }) {
@@ -183,6 +251,9 @@ function SummaryDisplay({ summary }: { summary: RestoreSummary }) {
     ["Channels", summary.channels],
     ["Messages", summary.messages],
     ["Reactions", summary.reactions],
+    ["Wiki Spaces", summary.wikiSpaces],
+    ["Wiki Pages", summary.wikiPages],
+    ["Wiki Comments", summary.wikiComments],
   ].filter(([, count]) => (count as number) > 0);
 
   return (
@@ -243,15 +314,18 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
   // ── Export state ──
   const { data: projectsData } = useProjects(workspaceId);
   const { data: channelsData } = useChannels(workspaceId);
+  const { data: wikiSpacesData } = useWikiSpaces(workspaceId);
   const exportMutation = useExportBackup(workspaceId);
 
   const projects = projectsData?.data ?? [];
   const channels: ChatChannel[] = (channelsData?.data ?? []).filter(
     (c: ChatChannel) => c.type !== "DM",
   );
+  const wikiSpaces = wikiSpacesData?.data ?? [];
 
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
   const [channelOptions, setChannelOptions] = useState<ChannelOption[]>([]);
+  const [wikiSpaceOptions, setWikiSpaceOptions] = useState<WikiSpaceOption[]>([]);
 
   // Initialize options when data loads
   if (projects.length > 0 && projectOptions.length === 0) {
@@ -284,14 +358,27 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
     );
   }
 
+  if (wikiSpaces.length > 0 && wikiSpaceOptions.length === 0) {
+    setWikiSpaceOptions(
+      wikiSpaces.map((s) => ({
+        spaceId: s.id,
+        name: s.name,
+        includeComments: true,
+        selected: false,
+      })),
+    );
+  }
+
   const selectedProjects = projectOptions.filter((p) => p.selected);
   const selectedChannels = channelOptions.filter((c) => c.selected);
-  const hasSelection = selectedProjects.length > 0 || selectedChannels.length > 0;
+  const selectedWikiSpaces = wikiSpaceOptions.filter((s) => s.selected);
+  const hasSelection = selectedProjects.length > 0 || selectedChannels.length > 0 || selectedWikiSpaces.length > 0;
 
   function handleExport() {
     const req: BackupExportRequest = {
       projects: selectedProjects.map(({ selected, name, ...rest }) => rest),
       channels: selectedChannels.map(({ selected, name, ...rest }) => rest),
+      wikiSpaces: selectedWikiSpaces.map(({ selected, name, ...rest }) => rest),
     };
     exportMutation.mutate(req, {
       onSuccess: ({ blob, filename }) => {
@@ -354,7 +441,7 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
       <section>
         <h2 className="text-lg font-semibold mb-1">Create Backup</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Select the projects and channels you want to include in the backup.
+          Select the projects, channels, and wiki spaces you want to include in the backup.
         </p>
 
         {projects.length > 0 && (
@@ -388,6 +475,25 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
                     const next = [...channelOptions];
                     next[i] = updated;
                     setChannelOptions(next);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {wikiSpaces.length > 0 && (
+          <div className="mb-4">
+            <Label className="text-sm font-medium mb-2 block">Wiki Spaces</Label>
+            <div className="space-y-2">
+              {wikiSpaceOptions.map((s, i) => (
+                <WikiSpaceItem
+                  key={s.spaceId}
+                  item={s}
+                  onChange={(updated) => {
+                    const next = [...wikiSpaceOptions];
+                    next[i] = updated;
+                    setWikiSpaceOptions(next);
                   }}
                 />
               ))}
@@ -464,9 +570,18 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
                 Restore Complete
               </h3>
               <SummaryDisplay summary={restoreResult} />
-              <Button variant="outline" onClick={resetRestore}>
-                Done
-              </Button>
+              <p className="text-sm text-muted-foreground">
+                Data has been restored successfully. Please refresh the page to see the changes.
+              </p>
+              <div className="flex gap-2">
+                <Button onClick={() => window.location.reload()}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Page
+                </Button>
+                <Button variant="outline" onClick={resetRestore}>
+                  Done
+                </Button>
+              </div>
             </div>
           )}
         </div>

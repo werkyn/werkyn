@@ -244,6 +244,66 @@ export async function exportBackup(
     });
   }
 
+  // ─── Export Wiki Spaces ──────────────────────────────
+
+  const wikiSpaceEntries: BackupFile["wikiSpaces"] = [];
+
+  for (const opt of request.wikiSpaces) {
+    const space = await prisma.wikiSpace.findUnique({
+      where: { id: opt.spaceId, workspaceId },
+      select: { name: true, description: true, icon: true },
+    });
+    if (!space) continue;
+
+    const dbPages = await prisma.wikiPage.findMany({
+      where: { spaceId: opt.spaceId },
+      include: opt.includeComments
+        ? { comments: { orderBy: { createdAt: "asc" } } }
+        : undefined,
+      orderBy: { createdAt: "asc" },
+    });
+
+    const pages = dbPages.map((p) => {
+      if (p.createdById) userIdSet.add(p.createdById);
+
+      const comments = (p as any).comments
+        ? (p as any).comments.map((c: any) => {
+            if (c.authorId) userIdSet.add(c.authorId);
+            return {
+              _originalId: c.id,
+              body: c.body,
+              authorRef: c.authorId,
+              resolved: c.resolved,
+              highlightId: c.highlightId,
+              selectionStart: c.selectionStart,
+              selectionEnd: c.selectionEnd,
+              createdAt: c.createdAt.toISOString(),
+            };
+          })
+        : [];
+
+      return {
+        _originalId: p.id,
+        title: p.title,
+        content: p.content,
+        icon: p.icon,
+        position: p.position,
+        parentRef: p.parentId,
+        createdByRef: p.createdById,
+        comments,
+      };
+    });
+
+    wikiSpaceEntries.push({
+      space: {
+        name: space.name,
+        description: space.description,
+        icon: space.icon,
+      },
+      pages,
+    });
+  }
+
   // ─── Resolve User References ──────────────────────────
 
   const userRefs = await prisma.user.findMany({
@@ -264,5 +324,6 @@ export async function exportBackup(
     },
     projects: projectEntries,
     channels: channelEntries,
+    wikiSpaces: wikiSpaceEntries,
   };
 }

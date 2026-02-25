@@ -92,6 +92,15 @@ export async function previewRestore(
     }
   }
 
+  let wikiPages = 0;
+  let wikiComments = 0;
+  for (const ws of backup.wikiSpaces) {
+    wikiPages += ws.pages.length;
+    for (const p of ws.pages) {
+      wikiComments += p.comments.length;
+    }
+  }
+
   return {
     projects: backup.projects.length,
     statuses,
@@ -104,6 +113,9 @@ export async function previewRestore(
     channels: backup.channels.length,
     messages,
     reactions,
+    wikiSpaces: backup.wikiSpaces.length,
+    wikiPages,
+    wikiComments,
     userMappings: userMapper.getMappings().map((m) => ({
       originalEmail: m.originalEmail,
       originalName: m.originalName,
@@ -137,6 +149,9 @@ export async function executeRestore(
     channels: 0,
     messages: 0,
     reactions: 0,
+    wikiSpaces: 0,
+    wikiPages: 0,
+    wikiComments: 0,
   };
   const warnings = [...userMapper.getWarnings()];
 
@@ -410,6 +425,89 @@ export async function executeRestore(
             }).catch(() => {});
             counts.reactions++;
           }
+        }
+      }
+      // ─── Restore Wiki Spaces ─────────────────────────────
+
+      // Determine starting position for new wiki spaces
+      const lastWikiSpace = await tx.wikiSpace.findFirst({
+        where: { workspaceId },
+        orderBy: { position: "desc" },
+        select: { position: true },
+      });
+      let wikiSpacePosition = (lastWikiSpace?.position ?? -1) + 1;
+
+      for (const wsEntry of backup.wikiSpaces) {
+        const slug =
+          wsEntry.space.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "")
+            .slice(0, 80) +
+          "-" +
+          Date.now().toString(36);
+
+        const newSpace = await tx.wikiSpace.create({
+          data: {
+            workspaceId,
+            name: wsEntry.space.name,
+            slug,
+            description: wsEntry.space.description,
+            icon: wsEntry.space.icon,
+            position: wikiSpacePosition++,
+          },
+        });
+        counts.wikiSpaces++;
+
+        // First pass: create all pages with parentId = null
+        for (const p of wsEntry.pages) {
+          const newPage = await tx.wikiPage.create({
+            data: {
+              spaceId: newSpace.id,
+              title: p.title,
+              content: p.content as any,
+              icon: p.icon,
+              position: p.position,
+              parentId: null,
+              createdById: userMapper.resolve(p.createdByRef ?? ""),
+            },
+          });
+          idMapper.set(p._originalId, newPage.id);
+          counts.wikiPages++;
+
+          // Comments
+          for (const c of p.comments) {
+            await tx.wikiPageComment.create({
+              data: {
+                pageId: newPage.id,
+                authorId: userMapper.resolve(c.authorRef ?? ""),
+                body: c.body,
+                resolved: c.resolved,
+                highlightId: c.highlightId,
+                selectionStart: c.selectionStart as any,
+                selectionEnd: c.selectionEnd as any,
+                createdAt: new Date(c.createdAt),
+              },
+            });
+            counts.wikiComments++;
+          }
+        }
+
+        // Second pass: set parentId for pages that have a parentRef
+        for (const p of wsEntry.pages) {
+          if (!p.parentRef) continue;
+          const newPageId = idMapper.get(p._originalId);
+          const newParentId = idMapper.get(p.parentRef);
+          if (!newPageId || !newParentId) {
+            warnings.push(
+              `Skipped parent link for wiki page "${p.title}" — parent ref ${p.parentRef} not found`,
+            );
+            continue;
+          }
+          await tx.wikiPage.update({
+            where: { id: newPageId },
+            data: { parentId: newParentId },
+          });
         }
       }
     },

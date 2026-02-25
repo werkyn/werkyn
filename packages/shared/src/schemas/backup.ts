@@ -22,9 +22,16 @@ export const BackupChannelOptionsSchema = z.object({
 });
 export type BackupChannelOptions = z.infer<typeof BackupChannelOptionsSchema>;
 
+export const BackupWikiSpaceOptionsSchema = z.object({
+  spaceId: z.string().min(1),
+  includeComments: z.boolean().default(true),
+});
+export type BackupWikiSpaceOptions = z.infer<typeof BackupWikiSpaceOptionsSchema>;
+
 export const BackupExportRequestSchema = z.object({
   projects: z.array(BackupProjectOptionsSchema).default([]),
   channels: z.array(BackupChannelOptionsSchema).default([]),
+  wikiSpaces: z.array(BackupWikiSpaceOptionsSchema).default([]),
 });
 export type BackupExportRequest = z.infer<typeof BackupExportRequestSchema>;
 
@@ -164,10 +171,42 @@ const BackupChannelSchema = z.object({
   messages: z.array(BackupMessageSchema).default([]),
 });
 
+const BackupWikiCommentSchema = z.object({
+  _originalId: z.string(),
+  body: z.string(),
+  authorRef: z.string().nullable().optional(),
+  resolved: z.boolean().default(false),
+  highlightId: z.string(),
+  selectionStart: z.unknown().nullable().optional(),
+  selectionEnd: z.unknown().nullable().optional(),
+  createdAt: z.string(),
+});
+
+const BackupWikiPageSchema = z.object({
+  _originalId: z.string(),
+  title: z.string(),
+  content: z.unknown().nullable().optional(),
+  icon: z.string().nullable().optional(),
+  position: z.number(),
+  parentRef: z.string().nullable().optional(),
+  createdByRef: z.string().nullable().optional(),
+  comments: z.array(BackupWikiCommentSchema).default([]),
+});
+
+const BackupWikiSpaceSchema = z.object({
+  space: z.object({
+    name: z.string(),
+    description: z.string().nullable().optional(),
+    icon: z.string().nullable().optional(),
+  }),
+  pages: z.array(BackupWikiPageSchema).default([]),
+});
+
 export const BackupFileSchema = z.object({
   metadata: MetadataSchema,
   projects: z.array(BackupProjectSchema).default([]),
   channels: z.array(BackupChannelSchema).default([]),
+  wikiSpaces: z.array(BackupWikiSpaceSchema).default([]),
 });
 export type BackupFile = z.infer<typeof BackupFileSchema>;
 
@@ -192,6 +231,9 @@ export interface RestoreSummary {
   channels: number;
   messages: number;
   reactions: number;
+  wikiSpaces: number;
+  wikiPages: number;
+  wikiComments: number;
   userMappings: RestoreUserMapping[];
   warnings: string[];
 }
