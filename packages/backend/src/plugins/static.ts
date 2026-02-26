@@ -17,6 +17,13 @@ export default fp(async (fastify: FastifyInstance) => {
     decorateReply: false,
   });
 
+  // General uploads (wiki images, etc.)
+  await fastify.register(fastifyStatic, {
+    root: path.join(storageDir, "uploads"),
+    prefix: "/storage/uploads/",
+    decorateReply: false,
+  });
+
   // Legacy uploads path (fallback for existing avatars)
   const legacyUploadsDir = path.join(__dirname, "../../uploads");
   await fastify.register(fastifyStatic, {

@@ -32,6 +32,7 @@ export const BackupExportRequestSchema = z.object({
   projects: z.array(BackupProjectOptionsSchema).default([]),
   channels: z.array(BackupChannelOptionsSchema).default([]),
   wikiSpaces: z.array(BackupWikiSpaceOptionsSchema).default([]),
+  includeFiles: z.boolean().default(true),
 });
 export type BackupExportRequest = z.infer<typeof BackupExportRequestSchema>;
 
@@ -44,7 +45,7 @@ const UserRefSchema = z.object({
 });
 
 const MetadataSchema = z.object({
-  version: z.literal("1.0"),
+  version: z.enum(["1.0", "1.1"]),
   exportedAt: z.string(),
   sourceWorkspace: z.object({
     name: z.string(),
@@ -133,6 +134,17 @@ const BackupMemberSchema = z.object({
   userRef: z.string(),
 });
 
+const BackupAttachmentSchema = z.object({
+  _originalId: z.string(),
+  entityType: z.string(),
+  entityRef: z.string(),
+  name: z.string(),
+  mimeType: z.string(),
+  size: z.number(),
+  assetPath: z.string(),
+  uploadedByRef: z.string().nullable().optional(),
+});
+
 const BackupProjectSchema = z.object({
   project: z.object({
     name: z.string(),
@@ -145,6 +157,7 @@ const BackupProjectSchema = z.object({
   customFields: z.array(BackupCustomFieldSchema).default([]),
   members: z.array(BackupMemberSchema).default([]),
   tasks: z.array(BackupTaskSchema).default([]),
+  attachments: z.array(BackupAttachmentSchema).default([]),
 });
 
 const BackupReactionSchema = z.object({
@@ -234,6 +247,8 @@ export interface RestoreSummary {
   wikiSpaces: number;
   wikiPages: number;
   wikiComments: number;
+  images: number;
+  attachments: number;
   userMappings: RestoreUserMapping[];
   warnings: string[];
 }

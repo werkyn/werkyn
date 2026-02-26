@@ -11,6 +11,7 @@ import {
   SmilePlus,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { EmojiPicker } from "@/components/shared/emoji-picker";
 import type { ChatMessage } from "../api";
 
 interface MessageItemProps {
@@ -23,17 +24,6 @@ interface MessageItemProps {
   onDelete?: (messageId: string) => void;
   onReaction?: (messageId: string, emoji: string) => void;
 }
-
-const QUICK_EMOJIS = [
-  "\u{1F44D}",
-  "\u{2764}\u{FE0F}",
-  "\u{1F602}",
-  "\u{1F389}",
-  "\u{1F44F}",
-  "\u{1F440}",
-  "\u{1F525}",
-  "\u{2705}",
-];
 
 function formatTime(dateStr: string) {
   const d = new Date(dateStr);
@@ -131,35 +121,24 @@ export function MessageItem({
     >
       {/* Floating action toolbar */}
       {hasActions && (
-        <div className="absolute top-1/2 -translate-y-1/2 right-4 hidden group-hover:flex items-center gap-0.5 rounded-md border bg-background shadow-sm px-1 py-0.5 z-10">
+        <div className={cn("absolute top-1/2 -translate-y-1/2 right-4 items-center gap-0.5 rounded-md border bg-background shadow-sm px-1 py-0.5 z-10", emojiPickerOpen ? "flex" : "hidden group-hover:flex")}>
           {onReaction && (
-            <div className="relative">
+            <EmojiPicker
+              value={null}
+              onChange={(emoji) => {
+                if (emoji) onReaction(message.id, emoji);
+              }}
+              onOpenChange={setEmojiPickerOpen}
+            >
               <Button
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7"
-                onClick={() => setEmojiPickerOpen(!emojiPickerOpen)}
                 title="Add reaction"
               >
                 <SmilePlus className="h-3.5 w-3.5" />
               </Button>
-              {emojiPickerOpen && (
-                <div className="absolute bottom-full right-0 mb-1 flex gap-0.5 rounded-md border bg-background shadow-md p-1 z-20">
-                  {QUICK_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-base"
-                      onClick={() => {
-                        onReaction(message.id, emoji);
-                        setEmojiPickerOpen(false);
-                      }}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            </EmojiPicker>
           )}
           {onThreadClick && !message.parentId && (
             <Button
