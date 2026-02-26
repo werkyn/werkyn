@@ -254,6 +254,8 @@ function SummaryDisplay({ summary }: { summary: RestoreSummary }) {
     ["Wiki Spaces", summary.wikiSpaces],
     ["Wiki Pages", summary.wikiPages],
     ["Wiki Comments", summary.wikiComments],
+    ["Images", summary.images],
+    ["Attachments", summary.attachments],
   ].filter(([, count]) => (count as number) > 0);
 
   return (
@@ -369,6 +371,8 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
     );
   }
 
+  const [includeFiles, setIncludeFiles] = useState(true);
+
   const selectedProjects = projectOptions.filter((p) => p.selected);
   const selectedChannels = channelOptions.filter((c) => c.selected);
   const selectedWikiSpaces = wikiSpaceOptions.filter((s) => s.selected);
@@ -379,6 +383,7 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
       projects: selectedProjects.map(({ selected, name, ...rest }) => rest),
       channels: selectedChannels.map(({ selected, name, ...rest }) => rest),
       wikiSpaces: selectedWikiSpaces.map(({ selected, name, ...rest }) => rest),
+      includeFiles,
     };
     exportMutation.mutate(req, {
       onSuccess: ({ blob, filename }) => {
@@ -501,6 +506,23 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
           </div>
         )}
 
+        {hasSelection && (
+          <div className="mb-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={includeFiles}
+                onChange={(e) => setIncludeFiles(e.target.checked)}
+                className="h-4 w-4 rounded border-border"
+              />
+              <span className="font-medium">Include files</span>
+              <span className="text-muted-foreground">
+                (wiki images & task attachments)
+              </span>
+            </label>
+          </div>
+        )}
+
         <Button
           onClick={handleExport}
           disabled={!hasSelection || exportMutation.isPending}
@@ -518,7 +540,7 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
       <section>
         <h2 className="text-lg font-semibold mb-1">Restore from Backup</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Upload a backup JSON file to preview and restore data into this workspace.
+          Upload a backup file (.zip or legacy .json) to preview and restore data into this workspace.
           Restored items are created as new entities with new IDs.
         </p>
 
@@ -528,7 +550,7 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".json"
+              accept=".json,.zip"
               onChange={handleFileSelect}
               className="block text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 file:cursor-pointer"
             />

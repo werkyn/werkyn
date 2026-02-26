@@ -1,11 +1,21 @@
 import type { PrismaClient } from "@prisma/client";
 import type { BackupExportRequest, BackupFile } from "@pm/shared";
+import type { StorageProvider } from "../../services/storage.js";
+import archiver from "archiver";
+import path from "node:path";
+import { extractStorageUrls, rewriteUrls } from "./backup-assets.js";
+
+export interface BackupExportResult {
+  zipBuffer: Buffer;
+  filename: string;
+}
 
 export async function exportBackup(
   prisma: PrismaClient,
   workspaceId: string,
   request: BackupExportRequest,
-): Promise<BackupFile> {
+  storage: StorageProvider,
+): Promise<BackupExportResult> {
   const workspace = await prisma.workspace.findUniqueOrThrow({
     where: { id: workspaceId },
     select: { name: true, slug: true },
@@ -13,6 +23,9 @@ export async function exportBackup(
 
   // Collect all user IDs referenced across the backup
   const userIdSet = new Set<string>();
+
+  // Track attachment files for reading into the ZIP: assetPath → storagePath
+  const attachmentFileMap = new Map<string, string>();
 
   // ─── Export Projects ──────────────────────────────────
 
@@ -145,6 +158,45 @@ export async function exportBackup(
       });
     }
 
+    // Attachments (for tasks and their comments in this project)
+    let attachments: BackupFile["projects"][number]["attachments"] = [];
+    if (opt.includeTasks && request.includeFiles) {
+      const taskIds = tasks.map((t) => t._originalId);
+      const commentIds = tasks.flatMap((t) =>
+        t.comments.map((c) => c._originalId),
+      );
+      const entityIds = [...taskIds, ...commentIds];
+
+      if (entityIds.length > 0) {
+        const dbAttachments = await prisma.attachment.findMany({
+          where: {
+            workspaceId,
+            entityId: { in: entityIds },
+            fileId: null, // skip Drive-linked attachments
+          },
+          orderBy: { createdAt: "asc" },
+        });
+
+        attachments = dbAttachments.map((a) => {
+          if (a.uploadedById) userIdSet.add(a.uploadedById);
+          const ext = path.extname(a.name) || path.extname(a.storagePath) || ".bin";
+          const assetPath = `attachments/${a.id}${ext}`;
+          // Track for file reading later
+          attachmentFileMap.set(assetPath, a.storagePath);
+          return {
+            _originalId: a.id,
+            entityType: a.entityType,
+            entityRef: a.entityId,
+            name: a.name,
+            mimeType: a.mimeType,
+            size: Number(a.size),
+            assetPath,
+            uploadedByRef: a.uploadedById,
+          };
+        });
+      }
+    }
+
     projectEntries.push({
       project: {
         name: project.name,
@@ -174,6 +226,7 @@ export async function exportBackup(
       })),
       members: members.map((m) => ({ userRef: m.userId })),
       tasks,
+      attachments,
     });
   }
 
@@ -311,9 +364,73 @@ export async function exportBackup(
     select: { id: true, email: true, displayName: true },
   });
 
-  return {
+  // ─── Collect Files (wiki images + attachment files) ─────
+
+  const assetBuffers = new Map<string, Buffer>();
+  const urlRewriteMap = new Map<string, string>();
+
+  if (request.includeFiles) {
+    // Collect & rewrite storage URLs in wiki content
+    const allStorageUrls = new Set<string>();
+    for (const ws of wikiSpaceEntries) {
+      for (const page of ws.pages) {
+        if (page.content) {
+          for (const url of extractStorageUrls(page.content)) {
+            allStorageUrls.add(url);
+          }
+        }
+      }
+    }
+
+    for (const url of allStorageUrls) {
+      // url looks like "/storage/uploads/userId/2026/02/uuid.png"
+      const storagePath = url.replace(/^\/storage\//, "");
+      const filename = path.basename(storagePath);
+      const assetPath = `assets/${filename}`;
+
+      try {
+        const buffer = await storage.read(storagePath);
+        assetBuffers.set(assetPath, buffer);
+        urlRewriteMap.set(url, assetPath);
+      } catch {
+        // File not found on disk — skip, leave original URL in JSON
+      }
+    }
+
+    // Rewrite URLs in wiki page content
+    if (urlRewriteMap.size > 0) {
+      for (const ws of wikiSpaceEntries) {
+        for (const page of ws.pages) {
+          if (page.content) {
+            page.content = rewriteUrls(page.content, urlRewriteMap);
+          }
+        }
+      }
+    }
+
+    // Read attachment files from storage
+    for (const [assetPath, storagePath] of attachmentFileMap) {
+      try {
+        const buffer = await storage.read(storagePath);
+        assetBuffers.set(assetPath, buffer);
+      } catch {
+        // File not found on disk
+      }
+    }
+
+    // Remove attachments whose files couldn't be read
+    for (const pEntry of projectEntries) {
+      pEntry.attachments = pEntry.attachments.filter((a) =>
+        assetBuffers.has(a.assetPath),
+      );
+    }
+  }
+
+  // ─── Build Backup JSON ────────────────────────────────
+
+  const backupJson: BackupFile = {
     metadata: {
-      version: "1.0",
+      version: "1.1",
       exportedAt: new Date().toISOString(),
       sourceWorkspace: { name: workspace.name, slug: workspace.slug },
       userRefs: userRefs.map((u) => ({
@@ -326,4 +443,31 @@ export async function exportBackup(
     channels: channelEntries,
     wikiSpaces: wikiSpaceEntries,
   };
+
+  // ─── Package as ZIP ───────────────────────────────────
+
+  const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
+    const archive = archiver("zip", { zlib: { level: 6 } });
+    const chunks: Buffer[] = [];
+
+    archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+    archive.on("end", () => resolve(Buffer.concat(chunks)));
+    archive.on("error", reject);
+
+    // Add backup.json
+    archive.append(JSON.stringify(backupJson, null, 2), {
+      name: "backup.json",
+    });
+
+    // Add asset files
+    for (const [assetPath, buffer] of assetBuffers) {
+      archive.append(buffer, { name: assetPath });
+    }
+
+    archive.finalize();
+  });
+
+  const filename = `backup-${workspace.slug}-${new Date().toISOString().slice(0, 10)}.zip`;
+
+  return { zipBuffer, filename };
 }

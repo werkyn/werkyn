@@ -1,7 +1,11 @@
+import crypto from "node:crypto";
+import path from "node:path";
 import type { PrismaClient } from "@prisma/client";
 import { BackupFileSchema, type BackupFile, type RestoreSummary } from "@pm/shared";
+import type { StorageProvider } from "../../services/storage.js";
 import { IdMapper, UserMapper } from "./id-mapper.js";
 import { ValidationError } from "../../utils/errors.js";
+import { rewriteUrls } from "./backup-assets.js";
 
 /** Parse and validate a backup JSON buffer. */
 function parseBackupFile(buffer: Buffer): BackupFile {
@@ -59,6 +63,7 @@ export async function previewRestore(
   workspaceId: string,
   adminUserId: string,
   fileBuffer: Buffer,
+  assets?: Map<string, Buffer>,
 ): Promise<RestoreSummary> {
   const backup = parseBackupFile(fileBuffer);
   const userMapper = await buildUserMapper(prisma, workspaceId, adminUserId, backup);
@@ -73,11 +78,14 @@ export async function previewRestore(
   let messages = 0;
   let reactions = 0;
 
+  let attachments = 0;
+
   for (const p of backup.projects) {
     statuses += p.statuses.length;
     labels += p.labels.length;
     customFields += p.customFields.length;
     tasks += p.tasks.length;
+    attachments += p.attachments.length;
     for (const t of p.tasks) {
       subtasks += t.subtasks.length;
       comments += t.comments.length;
@@ -116,6 +124,8 @@ export async function previewRestore(
     wikiSpaces: backup.wikiSpaces.length,
     wikiPages,
     wikiComments,
+    images: assets?.size ?? 0,
+    attachments,
     userMappings: userMapper.getMappings().map((m) => ({
       originalEmail: m.originalEmail,
       originalName: m.originalName,
@@ -132,6 +142,8 @@ export async function executeRestore(
   workspaceId: string,
   adminUserId: string,
   fileBuffer: Buffer,
+  assets?: Map<string, Buffer>,
+  storage?: StorageProvider,
 ): Promise<RestoreSummary> {
   const backup = parseBackupFile(fileBuffer);
   const userMapper = await buildUserMapper(prisma, workspaceId, adminUserId, backup);
@@ -152,8 +164,39 @@ export async function executeRestore(
     wikiSpaces: 0,
     wikiPages: 0,
     wikiComments: 0,
+    images: 0,
+    attachments: 0,
   };
   const warnings = [...userMapper.getWarnings()];
+
+  // ─── Re-upload assets and build URL rewrite map ────────
+
+  const assetUrlMap = new Map<string, string>(); // "assets/file.png" → "/storage/new/path"
+
+  if (assets && assets.size > 0 && storage) {
+    for (const [assetPath, buffer] of assets) {
+      // Only re-upload wiki image assets here; attachments are handled separately
+      if (!assetPath.startsWith("assets/")) continue;
+
+      const filename = path.basename(assetPath);
+      const ext = path.extname(filename) || ".bin";
+      const fileId = crypto.randomUUID();
+
+      try {
+        const storagePath = await storage.save(
+          "uploads",
+          adminUserId,
+          fileId,
+          ext,
+          buffer,
+        );
+        assetUrlMap.set(assetPath, `/storage/${storagePath}`);
+        counts.images++;
+      } catch {
+        warnings.push(`Failed to re-upload asset: ${filename}`);
+      }
+    }
+  }
 
   await prisma.$transaction(
     async (tx) => {
@@ -307,7 +350,7 @@ export async function executeRestore(
 
           // Comments
           for (const c of t.comments) {
-            await tx.comment.create({
+            const newComment = await tx.comment.create({
               data: {
                 taskId: newTask.id,
                 authorId: userMapper.resolveOptional(c.authorRef),
@@ -315,6 +358,7 @@ export async function executeRestore(
                 createdAt: new Date(c.createdAt),
               },
             });
+            idMapper.set(c._originalId, newComment.id);
             counts.comments++;
           }
 
@@ -348,6 +392,54 @@ export async function executeRestore(
             await tx.taskDependency.create({
               data: { blockedTaskId, blockingTaskId },
             }).catch(() => {});
+          }
+        }
+
+        // Attachments (restore after tasks + comments so entity IDs are mapped)
+        for (const att of pEntry.attachments) {
+          const newEntityId = idMapper.get(att.entityRef);
+          if (!newEntityId) {
+            warnings.push(
+              `Skipped attachment "${att.name}" — entity ref ${att.entityRef} not found`,
+            );
+            continue;
+          }
+
+          const fileBuffer = assets?.get(att.assetPath);
+          if (!fileBuffer || !storage) {
+            warnings.push(
+              `Skipped attachment "${att.name}" — file not found in archive`,
+            );
+            continue;
+          }
+
+          const ext = path.extname(att.name) || ".bin";
+          const fileId = crypto.randomUUID();
+
+          try {
+            const storagePath = await storage.save(
+              "attachments",
+              workspaceId,
+              fileId,
+              ext,
+              fileBuffer,
+            );
+
+            await tx.attachment.create({
+              data: {
+                workspaceId,
+                entityType: att.entityType,
+                entityId: newEntityId,
+                name: att.name,
+                mimeType: att.mimeType,
+                size: att.size,
+                storagePath,
+                uploadedById: userMapper.resolve(att.uploadedByRef ?? ""),
+              },
+            });
+            counts.attachments++;
+          } catch {
+            warnings.push(`Failed to restore attachment "${att.name}"`);
           }
         }
       }
@@ -461,11 +553,17 @@ export async function executeRestore(
 
         // First pass: create all pages with parentId = null
         for (const p of wsEntry.pages) {
+          // Rewrite asset URLs in page content if we have re-uploaded assets
+          const content =
+            assetUrlMap.size > 0 && p.content
+              ? rewriteUrls(p.content, assetUrlMap)
+              : p.content;
+
           const newPage = await tx.wikiPage.create({
             data: {
               spaceId: newSpace.id,
               title: p.title,
-              content: p.content as any,
+              content: content as any,
               icon: p.icon,
               position: p.position,
               parentId: null,
