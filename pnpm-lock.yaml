@@ -246,6 +246,9 @@ importers:
       tippy.js:
         specifier: ^6.3.7
         version: 6.3.7
+      unicode-emoji-json:
+        specifier: ^0.8.0
+        version: 0.8.0
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -4263,6 +4266,9 @@ packages:
   undici@7.22.0:
     resolution: {integrity: sha512-RqslV2Us5BrllB+JeiZnK4peryVTndy9Dnqq62S3yYRRTj0tFQCwEniUy2167skdGOy3vqRzEvl1Dm4sV2ReDg==}
     engines: {node: '>=20.18.1'}
+
+  unicode-emoji-json@0.8.0:
+    resolution: {integrity: sha512-3wDXXvp6YGoKGhS2O2H7+V+bYduOBydN1lnI0uVfr1cIdY02uFFiEH1i3kE5CCE4l6UqbLKVmEFW9USxTAMD1g==}
 
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
@@ -8803,6 +8809,8 @@ snapshots:
   undici-types@6.21.0: {}
 
   undici@7.22.0: {}
+
+  unicode-emoji-json@0.8.0: {}
 
   unified@11.0.5:
     dependencies:

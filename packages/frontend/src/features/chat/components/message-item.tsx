@@ -52,6 +52,7 @@ export function MessageItem({
 }: MessageItemProps) {
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const isOwn = message.userId === currentUserId;
   const isDeleted = !!message.deletedAt;
 
@@ -120,13 +121,14 @@ export function MessageItem({
     >
       {/* Floating action toolbar */}
       {hasActions && (
-        <div className="absolute top-1/2 -translate-y-1/2 right-4 hidden group-hover:flex items-center gap-0.5 rounded-md border bg-background shadow-sm px-1 py-0.5 z-10">
+        <div className={cn("absolute top-1/2 -translate-y-1/2 right-4 items-center gap-0.5 rounded-md border bg-background shadow-sm px-1 py-0.5 z-10", emojiPickerOpen ? "flex" : "hidden group-hover:flex")}>
           {onReaction && (
             <EmojiPicker
               value={null}
               onChange={(emoji) => {
                 if (emoji) onReaction(message.id, emoji);
               }}
+              onOpenChange={setEmojiPickerOpen}
             >
               <Button
                 size="icon"
