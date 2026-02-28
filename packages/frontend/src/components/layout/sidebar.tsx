@@ -17,7 +17,7 @@ import {
 import { WikiSpaceSidebarItem } from "@/features/wiki/components/wiki-space-sidebar-item";
 import type { WikiSpace } from "@/features/wiki/api";
 import { InviteDialog } from "@/features/workspaces/components/invite-dialog";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface SidebarProps {
   projects?: Array<{ id: string; name: string; color: string | null; icon: string | null }>;
@@ -33,51 +33,74 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
   const user = useAuthStore((s) => s.user);
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggle = useUIStore((s) => s.toggleSidebar);
+  const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
   const navigate = useNavigate();
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  const isMobile = useIsMobile();
+
+  // Auto-collapse on small screens
+  useEffect(() => {
+    const handleResize = () => {
+      setSidebarCollapsed(window.innerWidth < 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [setSidebarCollapsed]);
 
   const membership = workspaces.find((w) => w.workspace.slug === workspaceSlug);
   const permissions = usePermissions(membership, user?.id);
   const workspaceId = membership?.workspace.id;
 
   return (
-    <aside
-      className={cn(
-        "flex h-full flex-col border-r bg-background transition-all duration-200",
-        collapsed ? "w-0 overflow-hidden" : "w-64",
+    <>
+      {/* Mobile overlay backdrop */}
+      {isMobile && !collapsed && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={toggle}
+        />
       )}
-    >
-      <div>
-        <div className="flex items-center justify-between px-3 py-3">
-          <img
-            src="/werkyn_logo.svg"
-            alt="Werkyn"
-            className="h-6 w-auto dark:brightness-0 dark:invert"
-          />
-          <div className="flex items-center gap-1">
-            {permissions.canManageWorkspace && (
+      <aside
+        className={cn(
+          "flex h-full flex-col border-r bg-background transition-all duration-200",
+          isMobile
+            ? cn("fixed inset-y-0 left-0 z-50", collapsed ? "-translate-x-full" : "translate-x-0 w-64")
+            : cn(collapsed ? "w-0 overflow-hidden" : "w-64"),
+        )}
+      >
+        <div>
+          <div className="flex items-center justify-between px-3 py-3">
+            <img
+              src="/werkyn_logo.svg"
+              alt="Werkyn"
+              className="h-6 w-auto dark:brightness-0 dark:invert"
+            />
+            <div className="flex items-center gap-1">
+              {permissions.canManageWorkspace && (
+                <button
+                  onClick={() => setInviteOpen(true)}
+                  className="rounded-md p-1 hover:bg-accent transition-colors"
+                  aria-label="Invite members"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </button>
+              )}
               <button
-                onClick={() => setInviteOpen(true)}
+                onClick={toggle}
                 className="rounded-md p-1 hover:bg-accent transition-colors"
-                aria-label="Invite members"
+                aria-label="Collapse sidebar"
               >
-                <UserPlus className="h-4 w-4" />
+                <PanelLeftClose className="h-4 w-4" />
               </button>
-            )}
-            <button
-              onClick={toggle}
-              className="rounded-md p-1 hover:bg-accent transition-colors"
-              aria-label="Collapse sidebar"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </button>
+            </div>
           </div>
+          <hr className="border-sidebar-border dark:border-white/10" />
+          <div className="px-3 py-3">
+            <WorkspaceSwitcher currentSlug={workspaceSlug} />
+          </div>
+          <hr className="mx-3 border-sidebar-border dark:border-white/10" />
         </div>
-        <hr className="mx-3 border-sidebar-border dark:border-white/10" />
-        <div className="px-3 py-3">
-          <WorkspaceSwitcher currentSlug={workspaceSlug} />
-        </div>
-      </div>
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
         <Link
@@ -227,5 +250,16 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
         />
       )}
     </aside>
+    </>
   );
+}
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  return isMobile;
 }
