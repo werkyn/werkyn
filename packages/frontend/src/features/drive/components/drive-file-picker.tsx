@@ -154,7 +154,6 @@ export function DriveFilePicker({
       const uploadAll = async () => {
         // Read from refs to guarantee latest values in async context
         const parentId = currentFolderRef.current.id;
-        console.log("[DriveFilePicker] upload parentId:", parentId, "folder:", currentFolderRef.current);
         let lastUploaded: DriveFile | null = null;
         for (let i = 0; i < fileList.length; i++) {
           const file = fileList[i];
