@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { PriorityEnum } from "./task";
+
+const PriorityEnum = z.enum(["NONE", "LOW", "MEDIUM", "HIGH", "URGENT"]);
 
 export const CreateTemplateSchema = z.object({
   name: z.string().min(1, "Name is required").max(255),
