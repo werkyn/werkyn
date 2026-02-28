@@ -18,6 +18,10 @@ export function UploadDropzone({
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
 
+  // Ref ensures async handlers (file dialog) always call the latest onDrop
+  const onDropRef = useRef(onDrop);
+  onDropRef.current = onDrop;
+
   const handleDragEnter = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -59,21 +63,21 @@ export function UploadDropzone({
 
       const files = Array.from(e.dataTransfer.files);
       if (files.length > 0) {
-        onDrop(files);
+        onDropRef.current(files);
       }
     },
-    [onDrop, disabled],
+    [disabled],
   );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
       if (files.length > 0) {
-        onDrop(files);
+        onDropRef.current(files);
       }
       e.target.value = "";
     },
-    [onDrop],
+    [],
   );
 
   return (
