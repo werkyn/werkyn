@@ -1,5 +1,13 @@
-import { useState } from "react";
-import { useFiles, useTeamFolders, type DriveFile } from "../api";
+import { useState, useRef, useCallback } from "react";
+import {
+  useFiles,
+  useTeamFolders,
+  useCreateFolder,
+  useInvalidateFiles,
+  uploadSingleFile,
+  type DriveFile,
+} from "../api";
+import type { UploadItem } from "./upload-progress";
 import { getFileIcon, formatFileSize } from "@/lib/file-icons";
 import {
   Folder,
@@ -9,7 +17,11 @@ import {
   X,
   Check,
   Loader2,
+  FolderPlus,
+  Upload,
+  AlertCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface DriveFilePickerProps {
   open: boolean;
@@ -36,6 +48,12 @@ export function DriveFilePicker({
     { id: null, name: "Drive" },
   ]);
   const [selectedFile, setSelectedFile] = useState<DriveFile | null>(null);
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentFolder = folderStack[folderStack.length - 1];
   const isRoot = folderStack.length === 1;
@@ -48,6 +66,17 @@ export function DriveFilePicker({
   );
   const { data: teamFoldersData } = useTeamFolders(workspaceId);
   const teamFolders = teamFoldersData?.data ?? [];
+
+  const createFolder = useCreateFolder(
+    workspaceId,
+    currentFolder.id,
+    currentTeamFolderId,
+  );
+  const invalidateFiles = useInvalidateFiles(
+    workspaceId,
+    currentFolder.id,
+    currentTeamFolderId,
+  );
 
   const allFiles = data?.pages?.flatMap((p) => p.data) ?? [];
 
@@ -62,7 +91,11 @@ export function DriveFilePicker({
     ]);
   };
 
-  const enterTeamFolder = (tf: { id: string; folderId: string; name: string }) => {
+  const enterTeamFolder = (tf: {
+    id: string;
+    folderId: string;
+    name: string;
+  }) => {
     setSelectedFile(null);
     setFolderStack((s) => [
       ...s,
@@ -79,7 +112,156 @@ export function DriveFilePicker({
   const handleClose = () => {
     setFolderStack([{ id: null, name: "Drive" }]);
     setSelectedFile(null);
+    setUploads([]);
+    setShowNewFolder(false);
+    setNewFolderName("");
+    setIsDragging(false);
+    dragCounter.current = 0;
     onClose();
+  };
+
+  const handleCreateFolder = () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+    createFolder.mutate(name, {
+      onSuccess: () => {
+        setShowNewFolder(false);
+        setNewFolderName("");
+      },
+      onError: (err) => toast.error(err.message || "Failed to create folder"),
+    });
+  };
+
+  const handleUpload = useCallback(
+    (fileList: File[]) => {
+      const items: UploadItem[] = fileList.map((f) => ({
+        id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+        name: f.name,
+        size: f.size,
+        status: "uploading" as const,
+        progress: 0,
+        loaded: 0,
+        speed: 0,
+      }));
+      setUploads((prev) => [...prev, ...items]);
+
+      const uploadAll = async () => {
+        let lastUploaded: DriveFile | null = null;
+        for (let i = 0; i < fileList.length; i++) {
+          const file = fileList[i];
+          const item = items[i];
+          let startTime = Date.now();
+          let lastLoaded = 0;
+
+          try {
+            const uploaded = await uploadSingleFile(
+              workspaceId,
+              file,
+              currentFolder.id,
+              (loaded, total) => {
+                const now = Date.now();
+                const elapsed = (now - startTime) / 1000;
+                const speed =
+                  elapsed > 0
+                    ? (loaded - lastLoaded) / Math.max(elapsed, 0.1)
+                    : 0;
+                lastLoaded = loaded;
+                startTime = now;
+
+                setUploads((prev) =>
+                  prev.map((u) =>
+                    u.id === item.id
+                      ? {
+                          ...u,
+                          progress: (loaded / total) * 100,
+                          loaded,
+                          speed,
+                        }
+                      : u,
+                  ),
+                );
+              },
+            );
+            lastUploaded = uploaded;
+            setUploads((prev) =>
+              prev.map((u) =>
+                u.id === item.id
+                  ? {
+                      ...u,
+                      status: "done" as const,
+                      progress: 100,
+                      loaded: file.size,
+                      speed: 0,
+                    }
+                  : u,
+              ),
+            );
+          } catch (err) {
+            setUploads((prev) =>
+              prev.map((u) =>
+                u.id === item.id
+                  ? { ...u, status: "error" as const, speed: 0 }
+                  : u,
+              ),
+            );
+            toast.error(
+              err instanceof Error
+                ? err.message
+                : `Upload failed: ${file.name}`,
+            );
+          }
+        }
+
+        invalidateFiles();
+
+        // Auto-select the last uploaded file
+        if (lastUploaded) {
+          setSelectedFile(lastUploaded);
+        }
+
+        // Auto-clear completed uploads after 2s
+        setTimeout(() => {
+          setUploads((prev) => prev.filter((u) => u.status === "uploading"));
+        }, 2000);
+      };
+
+      uploadAll();
+    },
+    [workspaceId, currentFolder.id, invalidateFiles],
+  );
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length > 0) handleUpload(selected);
+    e.target.value = "";
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current += 1;
+    if (dragCounter.current === 1) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current -= 1;
+    if (dragCounter.current === 0) setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length > 0) handleUpload(droppedFiles);
   };
 
   if (!open) return null;
@@ -111,13 +293,93 @@ export function DriveFilePicker({
               <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
           )}
-          <span className="text-xs text-muted-foreground truncate">
+          <span className="text-xs text-muted-foreground truncate flex-1">
             {folderStack.map((f) => f.name).join(" / ")}
           </span>
         </div>
 
-        {/* File list */}
-        <div className="flex-1 overflow-y-auto p-2 min-h-[200px]">
+        {/* Toolbar */}
+        <div className="flex items-center gap-1 border-b px-4 py-1.5">
+          <button
+            onClick={() => {
+              setShowNewFolder(true);
+              setNewFolderName("");
+            }}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <FolderPlus className="h-3.5 w-3.5" />
+            New Folder
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Upload
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileInputChange}
+          />
+        </div>
+
+        {/* Inline folder creation form */}
+        {showNewFolder && (
+          <div className="flex items-center gap-2 border-b px-4 py-2">
+            <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateFolder();
+                if (e.key === "Escape") setShowNewFolder(false);
+              }}
+              placeholder="Folder name"
+              className="flex-1 rounded-md border bg-transparent px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-primary"
+              autoFocus
+            />
+            <button
+              onClick={handleCreateFolder}
+              disabled={!newFolderName.trim() || createFolder.isPending}
+              className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {createFolder.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                "Create"
+              )}
+            </button>
+            <button
+              onClick={() => setShowNewFolder(false)}
+              className="rounded p-1 hover:bg-accent transition-colors"
+            >
+              <X className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </div>
+        )}
+
+        {/* File list with drag-and-drop */}
+        <div
+          className="flex-1 overflow-y-auto p-2 min-h-[200px] relative"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Drag overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/5">
+              <div className="flex flex-col items-center gap-2 text-primary">
+                <Upload className="h-8 w-8" />
+                <span className="text-sm font-medium">Drop files here</span>
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -150,7 +412,9 @@ export function DriveFilePicker({
                 </>
               )}
 
-              {folders.length === 0 && files.length === 0 && !(isRoot && teamFolders.length > 0) ? (
+              {folders.length === 0 &&
+              files.length === 0 &&
+              !(isRoot && teamFolders.length > 0) ? (
                 <p className="text-center text-sm text-muted-foreground py-8">
                   This folder is empty
                 </p>
@@ -197,6 +461,33 @@ export function DriveFilePicker({
             </>
           )}
         </div>
+
+        {/* Upload progress */}
+        {uploads.length > 0 && (
+          <div className="border-t px-4 py-2 space-y-1 max-h-28 overflow-y-auto">
+            {uploads.map((item) => (
+              <div key={item.id} className="flex items-center gap-2 text-xs">
+                {item.status === "uploading" && (
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+                )}
+                {item.status === "done" && (
+                  <Check className="h-3 w-3 text-green-500 shrink-0" />
+                )}
+                {item.status === "error" && (
+                  <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
+                )}
+                <span className="truncate flex-1 text-muted-foreground">
+                  {item.name}
+                </span>
+                {item.status === "uploading" && (
+                  <span className="text-muted-foreground shrink-0">
+                    {Math.round(item.progress)}%
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 border-t px-4 py-3">

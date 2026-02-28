@@ -43,51 +43,6 @@ export function useAttachments(
   });
 }
 
-export function useUploadAttachment(
-  wid: string,
-  entityType: string,
-  entityId: string,
-) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (file: File) => {
-      const token = useAuthStore.getState().accessToken;
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("entityType", entityType);
-      formData.append("entityId", entityId);
-
-      const response = await fetch(
-        `${baseUrl}/workspaces/${wid}/attachments`,
-        {
-          method: "POST",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-          body: formData,
-        },
-      );
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(
-          (body as { message?: string }).message || "Upload failed",
-        );
-      }
-
-      return response.json() as Promise<{ data: Attachment }>;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({
-        queryKey: queryKeys.attachments(entityType, entityId),
-      });
-    },
-  });
-}
-
 export function useDeleteAttachment(
   wid: string,
   entityType: string,

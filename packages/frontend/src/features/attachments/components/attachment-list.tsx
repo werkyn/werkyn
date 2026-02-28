@@ -1,7 +1,6 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   useAttachments,
-  useUploadAttachment,
   useDeleteAttachment,
   useDownloadAttachment,
   useLinkAttachment,
@@ -10,7 +9,6 @@ import { getFileIcon, formatFileSize } from "@/lib/file-icons";
 import { Paperclip, Download, X, Plus, HardDrive, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { DriveFilePicker } from "@/features/drive/components/drive-file-picker";
-import { useWorkspaceSettings } from "@/features/admin/api";
 
 interface AttachmentListProps {
   workspaceId: string;
@@ -24,26 +22,12 @@ export function AttachmentList({
   canEdit,
 }: AttachmentListProps) {
   const { data, isLoading } = useAttachments(workspaceId, "task", taskId);
-  const uploadAttachment = useUploadAttachment(workspaceId, "task", taskId);
   const deleteAttachment = useDeleteAttachment(workspaceId, "task", taskId);
   const linkAttachment = useLinkAttachment(workspaceId, "task", taskId);
   const downloadAttachment = useDownloadAttachment(workspaceId);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
-  const { data: settingsData } = useWorkspaceSettings(workspaceId);
-  const driveEnabled = settingsData?.data?.enabledModules?.includes("drive") ?? true;
 
   const attachments = data?.data ?? [];
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    for (const file of files) {
-      uploadAttachment.mutate(file, {
-        onError: (err) => toast.error(err.message || "Upload failed"),
-      });
-    }
-    e.target.value = "";
-  };
 
   const handleDownload = (attachmentId: string, name: string) => {
     downloadAttachment(attachmentId, name).catch(() =>
@@ -69,14 +53,6 @@ export function AttachmentList({
           <span className="text-xs">({attachments.length})</span>
         )}
       </h3>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={handleFileSelect}
-      />
 
       {attachments.length > 0 && (
         <div className="space-y-1 mb-2">
@@ -130,44 +106,30 @@ export function AttachmentList({
       )}
 
       {canEdit && (
-        <div className="flex flex-col gap-1">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadAttachment.isPending}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {uploadAttachment.isPending ? "Uploading..." : "Attach file"}
-          </button>
-          {driveEnabled && (
-            <button
-              onClick={() => setShowDrivePicker(true)}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <HardDrive className="h-3.5 w-3.5" />
-              From Drive
-            </button>
-          )}
-        </div>
+        <button
+          onClick={() => setShowDrivePicker(true)}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Attach file
+        </button>
       )}
 
-      {driveEnabled && (
-        <DriveFilePicker
-          open={showDrivePicker}
-          onClose={() => setShowDrivePicker(false)}
-          workspaceId={workspaceId}
-          isPending={linkAttachment.isPending}
-          onSelect={(file) => {
-            linkAttachment.mutate(file.id, {
-              onSuccess: () => {
-                setShowDrivePicker(false);
-              },
-              onError: (err) =>
-                toast.error(err.message || "Failed to link file"),
-            });
-          }}
-        />
-      )}
+      <DriveFilePicker
+        open={showDrivePicker}
+        onClose={() => setShowDrivePicker(false)}
+        workspaceId={workspaceId}
+        isPending={linkAttachment.isPending}
+        onSelect={(file) => {
+          linkAttachment.mutate(file.id, {
+            onSuccess: () => {
+              setShowDrivePicker(false);
+            },
+            onError: (err) =>
+              toast.error(err.message || "Failed to link file"),
+          });
+        }}
+      />
     </div>
   );
 }
