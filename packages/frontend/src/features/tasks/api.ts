@@ -18,7 +18,7 @@ export interface Task {
   statusId: string;
   title: string;
   description: string | null;
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  priority: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate: string | null;
   startDate: string | null;
   position: number;
@@ -348,7 +348,7 @@ export function useBulkUpdateTasks(pid: string) {
     mutationFn: (data: {
       taskIds: string[];
       statusId?: string;
-      priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+      priority?: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "URGENT";
       assigneeIds?: string[];
       archived?: boolean;
       labelIds?: string[];

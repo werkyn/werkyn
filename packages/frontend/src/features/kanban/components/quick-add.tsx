@@ -21,7 +21,7 @@ export function QuickAdd({ projectId, statusId }: QuickAddProps) {
     }
     setTitle("");
     createTask.mutate(
-      { title: trimmed, statusId, priority: "MEDIUM" },
+      { title: trimmed, statusId, priority: "NONE" },
       {
         onSuccess: () => {
           inputRef.current?.focus();

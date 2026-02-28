@@ -29,7 +29,7 @@ interface FilterBarProps {
   hideDateRange?: boolean;
 }
 
-const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
+const priorities = ["NONE", "LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 
 const ALL = "__all__";
 

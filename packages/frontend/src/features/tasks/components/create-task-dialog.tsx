@@ -20,9 +20,10 @@ import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { CreateTaskInput } from "@pm/shared";
 
-const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
+const PRIORITIES = ["NONE", "LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 
 const priorityStyles: Record<string, string> = {
+  NONE: "bg-gray-50 text-gray-400 dark:bg-gray-800/50 dark:text-gray-500",
   LOW: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   MEDIUM: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   HIGH: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
@@ -61,7 +62,7 @@ export function CreateTaskDialog({
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [title, setTitle] = useState("");
   const [statusId, setStatusId] = useState(defaultStatusId ?? "");
-  const [priority, setPriority] = useState<CreateTaskInput["priority"]>("MEDIUM");
+  const [priority, setPriority] = useState<CreateTaskInput["priority"]>("NONE");
   const [startDate, setStartDate] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState<string | null>(null);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
@@ -76,7 +77,7 @@ export function CreateTaskDialog({
       setSelectedTemplateId("");
       setTitle("");
       setStatusId(defaultStatusId ?? firstStatusId);
-      setPriority("MEDIUM");
+      setPriority("NONE");
       setStartDate(defaultStartDate ?? null);
       setDueDate(defaultDueDate ?? null);
       setAssigneeIds([]);

@@ -26,7 +26,7 @@ export function DragOverlayCard({ task }: DragOverlayCardProps) {
       )}
       <p className="text-sm font-medium leading-snug">{task.title}</p>
       <div className="mt-2 flex items-center gap-2 flex-wrap">
-        {task.priority !== "MEDIUM" && (
+        {task.priority !== "NONE" && (
           <PriorityBadge priority={task.priority} />
         )}
         {task.dueDate && <DueDateChip dueDate={task.dueDate} />}

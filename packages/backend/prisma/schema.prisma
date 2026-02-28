@@ -356,6 +356,7 @@ model CustomFieldValue {
 // ─── Tasks ───────────────────────────────────────────────
 
 enum Priority {
+  NONE
   LOW
   MEDIUM
   HIGH
@@ -368,7 +369,7 @@ model Task {
   statusId    String
   title       String    @db.VarChar(255)
   description String?
-  priority    Priority  @default(MEDIUM)
+  priority    Priority  @default(NONE)
   position    Int       @default(0)
   dueDate     String?
   startDate   String?
@@ -558,7 +559,7 @@ model TaskTemplate {
   name        String   @db.VarChar(255)
   title       String   @db.VarChar(255)
   description String?
-  priority    Priority @default(MEDIUM)
+  priority    Priority @default(NONE)
   statusId    String?
   dueOffset   Int?
   assigneeIds Json     @default("[]")

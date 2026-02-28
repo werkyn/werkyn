@@ -1,12 +1,13 @@
 import { cn } from "@/lib/utils";
 
 interface PriorityBadgeProps {
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  priority: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   className?: string;
   onClick?: () => void;
 }
 
 const priorityConfig = {
+  NONE: { label: "None", className: "bg-gray-50 text-gray-400 dark:bg-gray-800/50 dark:text-gray-500" },
   LOW: { label: "Low", className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
   MEDIUM: { label: "Medium", className: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
   HIGH: { label: "High", className: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" },

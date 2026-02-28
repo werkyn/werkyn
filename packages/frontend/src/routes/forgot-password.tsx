@@ -15,12 +15,12 @@ export const Route = createFileRoute("/forgot-password")({
 function ForgotPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
+      <div className="w-full max-w-md space-y-8">
         <div className="flex justify-center">
           <img
             src="/werkyn_logo.svg"
             alt="Werkyn"
-            className="h-8 w-auto dark:brightness-0 dark:invert"
+            className="h-10 w-auto dark:brightness-0 dark:invert"
           />
         </div>
         <Card>

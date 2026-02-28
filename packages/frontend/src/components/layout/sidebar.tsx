@@ -48,15 +48,12 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
       )}
     >
       <div className="border-b">
-        <div className="flex items-center px-3 pt-3 pb-1">
+        <div className="flex items-center justify-between px-3 py-3">
           <img
             src="/werkyn_logo.svg"
             alt="Werkyn"
-            className="h-7 w-auto dark:brightness-0 dark:invert"
+            className="h-6 w-auto dark:brightness-0 dark:invert"
           />
-        </div>
-        <div className="flex items-center justify-between px-3 pb-3 pt-1">
-          <WorkspaceSwitcher currentSlug={workspaceSlug} />
           <div className="flex items-center gap-1">
             {permissions.canManageWorkspace && (
               <button
@@ -75,6 +72,9 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
               <PanelLeftClose className="h-4 w-4" />
             </button>
           </div>
+        </div>
+        <div className="px-3 pb-3">
+          <WorkspaceSwitcher currentSlug={workspaceSlug} />
         </div>
       </div>
 

@@ -12,7 +12,7 @@ interface BulkActionsProps {
   canDelete?: boolean;
 }
 
-const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
+const priorities = ["NONE", "LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 
 export function BulkActions({
   projectId,
