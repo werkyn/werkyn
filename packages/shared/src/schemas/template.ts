@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { PriorityEnum } from "./task";
 
 export const CreateTemplateSchema = z.object({
   name: z.string().min(1, "Name is required").max(255),
   title: z.string().min(1, "Title is required").max(255),
   description: z.string().optional(),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
+  priority: PriorityEnum.default("NONE"),
   statusId: z.string().optional(),
   dueOffset: z.number().int().min(0).optional(),
   assigneeIds: z.array(z.string()).default([]),
@@ -17,7 +18,7 @@ export const UpdateTemplateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   title: z.string().min(1).max(255).optional(),
   description: z.string().nullable().optional(),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
+  priority: PriorityEnum.optional(),
   statusId: z.string().nullable().optional(),
   dueOffset: z.number().int().min(0).nullable().optional(),
   assigneeIds: z.array(z.string()).optional(),
