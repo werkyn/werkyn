@@ -82,10 +82,6 @@ export function DrivePage({
   const downloadFile = useDownloadFile(workspaceId);
   const trashFile = useTrashFile(workspaceId, folderId ?? null, teamFolderId);
   const invalidateFiles = useInvalidateFiles(workspaceId, folderId ?? null, teamFolderId);
-  const invalidateFilesRef = useRef(invalidateFiles);
-  invalidateFilesRef.current = invalidateFiles;
-  const folderIdRef = useRef(folderId);
-  folderIdRef.current = folderId;
   const moveFile = useMoveFile(workspaceId);
 
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
@@ -153,6 +149,7 @@ export function DrivePage({
 
   const handleUpload = useCallback(
     (fileList: File[]) => {
+      const parentId = folderId ?? null;
       const items: UploadItem[] = fileList.map((f) => ({
         id: Math.random().toString(36).slice(2) + Date.now().toString(36),
         name: f.name,
@@ -165,8 +162,6 @@ export function DrivePage({
       setUploads((prev) => [...prev, ...items]);
 
       const uploadAll = async () => {
-        // Read from refs to guarantee latest values in async context
-        const parentId = folderIdRef.current ?? null;
         for (let i = 0; i < fileList.length; i++) {
           const file = fileList[i];
           const item = items[i];
@@ -210,12 +205,12 @@ export function DrivePage({
             toast.error(err instanceof Error ? err.message : `Upload failed: ${file.name}`);
           }
         }
-        invalidateFilesRef.current();
+        invalidateFiles();
       };
 
       uploadAll();
     },
-    [workspaceId],
+    [workspaceId, folderId, invalidateFiles],
   );
 
   const handleNavigate = useCallback(

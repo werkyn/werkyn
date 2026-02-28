@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import {
   useFiles,
   useTeamFolders,
@@ -59,10 +59,6 @@ export function DriveFilePicker({
   const isRoot = folderStack.length === 1;
   const currentTeamFolderId = currentFolder.teamFolderId;
 
-  // Refs to avoid stale closures in async upload handler
-  const currentFolderRef = useRef(currentFolder);
-  currentFolderRef.current = currentFolder;
-
   const { data, isLoading } = useFiles(
     workspaceId,
     currentFolder.id,
@@ -81,8 +77,6 @@ export function DriveFilePicker({
     currentFolder.id,
     currentTeamFolderId,
   );
-  const invalidateFilesRef = useRef(invalidateFiles);
-  invalidateFilesRef.current = invalidateFiles;
 
   const allFiles = data?.pages?.flatMap((p) => p.data) ?? [];
 
@@ -138,105 +132,101 @@ export function DriveFilePicker({
     });
   };
 
-  const handleUpload = useCallback(
-    (fileList: File[]) => {
-      const items: UploadItem[] = fileList.map((f) => ({
-        id: Math.random().toString(36).slice(2) + Date.now().toString(36),
-        name: f.name,
-        size: f.size,
-        status: "uploading" as const,
-        progress: 0,
-        loaded: 0,
-        speed: 0,
-      }));
-      setUploads((prev) => [...prev, ...items]);
+  const handleUpload = (fileList: File[]) => {
+    const parentId = currentFolder.id;
+    const items: UploadItem[] = fileList.map((f) => ({
+      id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+      name: f.name,
+      size: f.size,
+      status: "uploading" as const,
+      progress: 0,
+      loaded: 0,
+      speed: 0,
+    }));
+    setUploads((prev) => [...prev, ...items]);
 
-      const uploadAll = async () => {
-        // Read from refs to guarantee latest values in async context
-        const parentId = currentFolderRef.current.id;
-        let lastUploaded: DriveFile | null = null;
-        for (let i = 0; i < fileList.length; i++) {
-          const file = fileList[i];
-          const item = items[i];
-          let startTime = Date.now();
-          let lastLoaded = 0;
+    const uploadAll = async () => {
+      let lastUploaded: DriveFile | null = null;
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        const item = items[i];
+        let startTime = Date.now();
+        let lastLoaded = 0;
 
-          try {
-            const uploaded = await uploadSingleFile(
-              workspaceId,
-              file,
-              parentId,
-              (loaded, total) => {
-                const now = Date.now();
-                const elapsed = (now - startTime) / 1000;
-                const speed =
-                  elapsed > 0
-                    ? (loaded - lastLoaded) / Math.max(elapsed, 0.1)
-                    : 0;
-                lastLoaded = loaded;
-                startTime = now;
+        try {
+          const uploaded = await uploadSingleFile(
+            workspaceId,
+            file,
+            parentId,
+            (loaded, total) => {
+              const now = Date.now();
+              const elapsed = (now - startTime) / 1000;
+              const speed =
+                elapsed > 0
+                  ? (loaded - lastLoaded) / Math.max(elapsed, 0.1)
+                  : 0;
+              lastLoaded = loaded;
+              startTime = now;
 
-                setUploads((prev) =>
-                  prev.map((u) =>
-                    u.id === item.id
-                      ? {
-                          ...u,
-                          progress: (loaded / total) * 100,
-                          loaded,
-                          speed,
-                        }
-                      : u,
-                  ),
-                );
-              },
-            );
-            lastUploaded = uploaded;
-            setUploads((prev) =>
-              prev.map((u) =>
-                u.id === item.id
-                  ? {
-                      ...u,
-                      status: "done" as const,
-                      progress: 100,
-                      loaded: file.size,
-                      speed: 0,
-                    }
-                  : u,
-              ),
-            );
-          } catch (err) {
-            setUploads((prev) =>
-              prev.map((u) =>
-                u.id === item.id
-                  ? { ...u, status: "error" as const, speed: 0 }
-                  : u,
-              ),
-            );
-            toast.error(
-              err instanceof Error
-                ? err.message
-                : `Upload failed: ${file.name}`,
-            );
-          }
+              setUploads((prev) =>
+                prev.map((u) =>
+                  u.id === item.id
+                    ? {
+                        ...u,
+                        progress: (loaded / total) * 100,
+                        loaded,
+                        speed,
+                      }
+                    : u,
+                ),
+              );
+            },
+          );
+          lastUploaded = uploaded;
+          setUploads((prev) =>
+            prev.map((u) =>
+              u.id === item.id
+                ? {
+                    ...u,
+                    status: "done" as const,
+                    progress: 100,
+                    loaded: file.size,
+                    speed: 0,
+                  }
+                : u,
+            ),
+          );
+        } catch (err) {
+          setUploads((prev) =>
+            prev.map((u) =>
+              u.id === item.id
+                ? { ...u, status: "error" as const, speed: 0 }
+                : u,
+            ),
+          );
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : `Upload failed: ${file.name}`,
+          );
         }
+      }
 
-        invalidateFilesRef.current();
+      invalidateFiles();
 
-        // Auto-select the last uploaded file
-        if (lastUploaded) {
-          setSelectedFile(lastUploaded);
-        }
+      // Auto-select the last uploaded file
+      if (lastUploaded) {
+        setSelectedFile(lastUploaded);
+      }
 
-        // Auto-clear completed uploads after 2s
-        setTimeout(() => {
-          setUploads((prev) => prev.filter((u) => u.status === "uploading"));
-        }, 2000);
-      };
+      // Auto-clear completed uploads after 2s
+      setTimeout(() => {
+        setUploads((prev) => prev.filter((u) => u.status === "uploading"));
+      }, 2000);
+    };
 
-      uploadAll();
-    },
-    [workspaceId],
-  );
+    uploadAll();
+  };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
