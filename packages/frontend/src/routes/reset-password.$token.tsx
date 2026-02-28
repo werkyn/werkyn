@@ -17,15 +17,24 @@ function ResetPasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Reset password</CardTitle>
-          <CardDescription>Enter your new password</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResetPasswordForm token={token} />
-        </CardContent>
-      </Card>
+      <div className="w-full max-w-md space-y-6">
+        <div className="flex justify-center">
+          <img
+            src="/werkyn_logo.svg"
+            alt="Werkyn"
+            className="h-8 w-auto dark:brightness-0 dark:invert"
+          />
+        </div>
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-heading">Reset password</CardTitle>
+            <CardDescription>Enter your new password</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResetPasswordForm token={token} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -47,25 +47,34 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
         collapsed ? "w-0 overflow-hidden" : "w-64",
       )}
     >
-      <div className="flex items-center justify-between p-3 border-b">
-        <WorkspaceSwitcher currentSlug={workspaceSlug} />
-        <div className="flex items-center gap-1">
-          {permissions.canManageWorkspace && (
+      <div className="border-b">
+        <div className="flex items-center px-3 pt-3 pb-1">
+          <img
+            src="/werkyn_logo.svg"
+            alt="Werkyn"
+            className="h-7 w-auto dark:brightness-0 dark:invert"
+          />
+        </div>
+        <div className="flex items-center justify-between px-3 pb-3 pt-1">
+          <WorkspaceSwitcher currentSlug={workspaceSlug} />
+          <div className="flex items-center gap-1">
+            {permissions.canManageWorkspace && (
+              <button
+                onClick={() => setInviteOpen(true)}
+                className="rounded-md p-1 hover:bg-accent transition-colors"
+                aria-label="Invite members"
+              >
+                <UserPlus className="h-4 w-4" />
+              </button>
+            )}
             <button
-              onClick={() => setInviteOpen(true)}
+              onClick={toggle}
               className="rounded-md p-1 hover:bg-accent transition-colors"
-              aria-label="Invite members"
+              aria-label="Collapse sidebar"
             >
-              <UserPlus className="h-4 w-4" />
+              <PanelLeftClose className="h-4 w-4" />
             </button>
-          )}
-          <button
-            onClick={toggle}
-            className="rounded-md p-1 hover:bg-accent transition-colors"
-            aria-label="Collapse sidebar"
-          >
-            <PanelLeftClose className="h-4 w-4" />
-          </button>
+          </div>
         </div>
       </div>
 
