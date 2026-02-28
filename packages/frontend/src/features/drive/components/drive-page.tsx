@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -8,7 +8,8 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { useFiles, useDownloadFile, useTrashFile, uploadSingleFile, useInvalidateFiles, useMoveFile, useTeamFolders, type DriveFile } from "../api";
+import { useFiles, useDownloadFile, useTrashFile, useMoveFile, useTeamFolders, type DriveFile } from "../api";
+import { useFileUpload } from "../hooks/use-file-upload";
 import { useAuthStore } from "@/stores/auth-store";
 import { usePermissions } from "@/hooks/use-permissions";
 import { getFileIcon } from "@/lib/file-icons";
@@ -20,7 +21,7 @@ import { CreateFolderDialog } from "./create-folder-dialog";
 import { RenameDialog } from "./rename-dialog";
 import { MoveDialog } from "./move-dialog";
 import { UploadDropzone } from "./upload-dropzone";
-import { UploadProgress, type UploadItem } from "./upload-progress";
+import { UploadProgress } from "./upload-progress";
 import { TeamFoldersSection } from "./team-folders-section";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,9 +70,9 @@ export function DrivePage({
   // Determine if we're at root level (no folderId AND no teamFolderId)
   const isRoot = !folderId && !teamFolderId;
 
-  const { data, hasNextPage, isFetchingNextPage, fetchNextPage, isLoading } =
+  const { data, hasNextPage, isFetchingNextPage, fetchNextPage, isLoading, isError, refetch } =
     useFiles(workspaceId, folderId ?? null, teamFolderId);
-  const files = (data?.pages ?? []).flatMap((p) => p.data);
+  const files = useMemo(() => (data?.pages ?? []).flatMap((p) => p.data), [data]);
 
   // Fetch team folder info for breadcrumbs
   const { data: teamFoldersData } = useTeamFolders(workspaceId);
@@ -81,13 +82,17 @@ export function DrivePage({
 
   const downloadFile = useDownloadFile(workspaceId);
   const trashFile = useTrashFile(workspaceId, folderId ?? null, teamFolderId);
-  const invalidateFiles = useInvalidateFiles(workspaceId, folderId ?? null, teamFolderId);
   const moveFile = useMoveFile(workspaceId);
+
+  const { uploads, handleUpload, clearUploads } = useFileUpload({
+    workspaceId,
+    parentId: folderId ?? null,
+    teamFolderId,
+  });
 
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [renameFile, setRenameFile] = useState<DriveFile | null>(null);
   const [moveFileDialog, setMoveFileDialog] = useState<DriveFile | null>(null);
-  const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [activeDrag, setActiveDrag] = useState<DriveFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -96,6 +101,8 @@ export function DrivePage({
       activationConstraint: { distance: 8 },
     }),
   );
+
+  const handleLoadMore = useCallback(() => fetchNextPage(), [fetchNextPage]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const file = event.active.data.current?.file as DriveFile | undefined;
@@ -130,8 +137,9 @@ export function DrivePage({
 
   const handleDownload = useCallback(
     (file: DriveFile) => {
-      downloadFile(file.id, file.name).catch(() =>
-        toast.error("Download failed"),
+      downloadFile.mutate(
+        { fileId: file.id, fileName: file.name },
+        { onError: () => toast.error("Download failed") },
       );
     },
     [downloadFile],
@@ -147,85 +155,14 @@ export function DrivePage({
     [trashFile],
   );
 
-  const handleUpload = useCallback(
-    (fileList: File[]) => {
-      const items: UploadItem[] = fileList.map((f) => ({
-        id: Math.random().toString(36).slice(2) + Date.now().toString(36),
-        name: f.name,
-        size: f.size,
-        status: "uploading" as const,
-        progress: 0,
-        loaded: 0,
-        speed: 0,
-      }));
-      setUploads((prev) => [...prev, ...items]);
-
-      const uploadAll = async () => {
-        for (let i = 0; i < fileList.length; i++) {
-          const file = fileList[i];
-          const item = items[i];
-          let startTime = Date.now();
-          let lastLoaded = 0;
-
-          try {
-            await uploadSingleFile(
-              workspaceId,
-              file,
-              folderId ?? null,
-              (loaded, total) => {
-                const now = Date.now();
-                const elapsed = (now - startTime) / 1000;
-                const speed = elapsed > 0 ? (loaded - lastLoaded) / Math.max(elapsed, 0.1) : 0;
-                lastLoaded = loaded;
-                startTime = now;
-
-                setUploads((prev) =>
-                  prev.map((u) =>
-                    u.id === item.id
-                      ? { ...u, progress: (loaded / total) * 100, loaded, speed }
-                      : u,
-                  ),
-                );
-              },
-            );
-            setUploads((prev) =>
-              prev.map((u) =>
-                u.id === item.id
-                  ? { ...u, status: "done" as const, progress: 100, loaded: file.size, speed: 0 }
-                  : u,
-              ),
-            );
-          } catch (err) {
-            setUploads((prev) =>
-              prev.map((u) =>
-                u.id === item.id ? { ...u, status: "error" as const, speed: 0 } : u,
-              ),
-            );
-            toast.error(err instanceof Error ? err.message : `Upload failed: ${file.name}`);
-          }
-        }
-        invalidateFiles();
-      };
-
-      uploadAll();
-    },
-    [workspaceId, folderId, invalidateFiles],
-  );
-
   const handleNavigate = useCallback(
     (id: string) => onNavigate(id, teamFolderId),
     [onNavigate, teamFolderId],
   );
 
-  const DragOverlayContent = activeDrag ? () => {
-    const Icon = getFileIcon(activeDrag.mimeType, activeDrag.isFolder);
-    return (
-      <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 shadow-lg">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm truncate max-w-48">{activeDrag.name}</span>
-      </div>
-    );
-  } : null;
+  const dragOverlayIcon = activeDrag
+    ? getFileIcon(activeDrag.mimeType, activeDrag.isFolder)
+    : null;
 
   const contentArea = (
     <>
@@ -233,13 +170,20 @@ export function DrivePage({
         <div className="flex items-center justify-center py-16">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
+          <p className="text-sm text-destructive">Failed to load files</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            Try again
+          </Button>
+        </div>
       ) : view === "list" ? (
         <FileListView
           files={files}
           hasNextPage={!!hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           canEdit={canEdit}
-          onLoadMore={() => fetchNextPage()}
+          onLoadMore={handleLoadMore}
           onNavigate={handleNavigate}
           onDownload={handleDownload}
           onRename={setRenameFile}
@@ -252,7 +196,7 @@ export function DrivePage({
           hasNextPage={!!hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           canEdit={canEdit}
-          onLoadMore={() => fetchNextPage()}
+          onLoadMore={handleLoadMore}
           onNavigate={handleNavigate}
           onDownload={handleDownload}
           onRename={setRenameFile}
@@ -273,6 +217,7 @@ export function DrivePage({
               <>
                 <button
                   onClick={() => onTrashToggle(false)}
+                  aria-label="Back to Drive"
                   className="rounded-md p-1 hover:bg-accent transition-colors"
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -292,6 +237,8 @@ export function DrivePage({
               <div className="flex items-center rounded-md border">
                 <button
                   onClick={() => onViewChange("list")}
+                  aria-label="List view"
+                  aria-pressed={view === "list"}
                   className={cn(
                     "rounded-l-md p-1.5 transition-colors",
                     view === "list"
@@ -303,6 +250,8 @@ export function DrivePage({
                 </button>
                 <button
                   onClick={() => onViewChange("grid")}
+                  aria-label="Grid view"
+                  aria-pressed={view === "grid"}
                   className={cn(
                     "rounded-r-md p-1.5 transition-colors",
                     view === "grid"
@@ -338,6 +287,7 @@ export function DrivePage({
                 variant="ghost"
                 size="sm"
                 onClick={() => onTrashToggle(true)}
+                aria-label="View trash"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -351,7 +301,7 @@ export function DrivePage({
             folderId={folderId}
             teamFolderId={teamFolderId}
             teamFolderName={currentTeamFolder?.name}
-            onNavigate={(id, tfid) => onNavigate(id, tfid)}
+            onNavigate={onNavigate}
           />
         )}
       </div>
@@ -373,7 +323,7 @@ export function DrivePage({
               <TeamFoldersSection
                 workspaceId={workspaceId}
                 isAdmin={isAdmin}
-                onNavigate={(fid, tfid) => onNavigate(fid, tfid)}
+                onNavigate={onNavigate}
               />
             )}
 
@@ -394,7 +344,15 @@ export function DrivePage({
               >
                 {contentArea}
                 <DragOverlay dropAnimation={null}>
-                  {DragOverlayContent && <DragOverlayContent />}
+                  {activeDrag && dragOverlayIcon && (() => {
+                    const Icon = dragOverlayIcon;
+                    return (
+                      <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 shadow-lg">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm truncate max-w-48">{activeDrag.name}</span>
+                      </div>
+                    );
+                  })()}
                 </DragOverlay>
               </DndContext>
             ) : (
@@ -429,7 +387,7 @@ export function DrivePage({
 
       <UploadProgress
         uploads={uploads}
-        onDismiss={() => setUploads([])}
+        onDismiss={clearUploads}
       />
     </div>
   );

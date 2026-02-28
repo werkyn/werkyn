@@ -42,7 +42,7 @@ export function TeamFolderMembersDialog({
   const { data: tfData, isLoading } = useTeamFolder(workspaceId, teamFolderId);
   const teamFolder = tfData?.data;
   const currentMembers = teamFolder?.members ?? [];
-  const currentGroups = (teamFolder as any)?.groups ?? [];
+  const currentGroups = teamFolder?.groups ?? [];
 
   const { data: wsData } = useWorkspaceMembers(workspaceId);
   const allMembers = wsData?.data ?? [];
@@ -61,7 +61,7 @@ export function TeamFolderMembersDialog({
   );
 
   const currentGroupIds = new Set(
-    currentGroups.map((g: any) => g.group?.id ?? g.groupId),
+    currentGroups.map((g) => g.group.id),
   );
   const availableGroups = allGroups.filter(
     (g) => !currentGroupIds.has(g.id),
@@ -121,7 +121,7 @@ export function TeamFolderMembersDialog({
                   Groups
                 </div>
                 <div className="border rounded-md">
-                  {currentGroups.map((g: any) => {
+                  {currentGroups.map((g) => {
                     const group = g.group;
                     return (
                       <div
@@ -130,17 +130,17 @@ export function TeamFolderMembersDialog({
                       >
                         <div
                           className="h-2.5 w-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: group?.color ?? "#6366f1" }}
+                          style={{ backgroundColor: group.color ?? "#6366f1" }}
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm truncate">{group?.name}</div>
+                          <div className="text-sm truncate">{group.name}</div>
                         </div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Users className="h-3 w-3" />
-                          {group?._count?.members ?? 0}
+                          {group._count.members}
                         </div>
                         <button
-                          onClick={() => handleRemoveGroup(group?.id)}
+                          onClick={() => handleRemoveGroup(group.id)}
                           className="rounded p-1 hover:bg-accent transition-colors text-muted-foreground hover:text-destructive"
                           title="Remove group"
                         >

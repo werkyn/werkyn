@@ -57,7 +57,8 @@ export function getFileIcon(mimeType: string | null, isFolder: boolean): LucideI
 }
 
 export function formatFileSize(bytes: number | null): string {
-  if (bytes === null || bytes === 0) return "—";
+  if (bytes === null) return "—";
+  if (bytes === 0) return "0 B";
 
   const units = ["B", "KB", "MB", "GB"];
   let size = bytes;

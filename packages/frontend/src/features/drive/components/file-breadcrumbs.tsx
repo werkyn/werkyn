@@ -1,5 +1,11 @@
 import { useBreadcrumbs } from "../api";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface FileBreadcrumbsProps {
   workspaceId: string;
@@ -47,6 +53,7 @@ export function FileBreadcrumbs({
       {(folderId || teamFolderId) && (
         <button
           onClick={handleBack}
+          aria-label="Go back"
           className="shrink-0 rounded-md p-1 hover:bg-accent transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -83,21 +90,78 @@ export function FileBreadcrumbs({
       )}
 
       {/* Sub-folder crumbs */}
-      {displayCrumbs.map((crumb, i) => (
-        <span key={crumb.id} className="flex items-center gap-1 min-w-0">
-          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-          {i === displayCrumbs.length - 1 ? (
-            <span className="truncate font-medium">{crumb.name}</span>
-          ) : (
+      {displayCrumbs.length <= 3 ? (
+        displayCrumbs.map((crumb, i) => (
+          <span key={crumb.id} className="flex items-center gap-1 min-w-0">
+            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+            {i === displayCrumbs.length - 1 ? (
+              <span className="truncate font-medium">{crumb.name}</span>
+            ) : (
+              <button
+                onClick={() => onNavigate(crumb.id, teamFolderId)}
+                className="truncate text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {crumb.name}
+              </button>
+            )}
+          </span>
+        ))
+      ) : (
+        <>
+          {/* First crumb */}
+          <span className="flex items-center gap-1 min-w-0">
+            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
             <button
-              onClick={() => onNavigate(crumb.id, teamFolderId)}
+              onClick={() => onNavigate(displayCrumbs[0].id, teamFolderId)}
               className="truncate text-muted-foreground hover:text-foreground transition-colors"
             >
-              {crumb.name}
+              {displayCrumbs[0].name}
             </button>
-          )}
-        </span>
-      ))}
+          </span>
+
+          {/* Collapsed middle crumbs */}
+          <span className="flex items-center gap-1 min-w-0">
+            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label="Show more breadcrumbs"
+                  className="rounded p-0.5 hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {displayCrumbs.slice(1, -2).map((crumb) => (
+                  <DropdownMenuItem
+                    key={crumb.id}
+                    onClick={() => onNavigate(crumb.id, teamFolderId)}
+                  >
+                    {crumb.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </span>
+
+          {/* Last 2 crumbs */}
+          {displayCrumbs.slice(-2).map((crumb, i, arr) => (
+            <span key={crumb.id} className="flex items-center gap-1 min-w-0">
+              <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+              {i === arr.length - 1 ? (
+                <span className="truncate font-medium">{crumb.name}</span>
+              ) : (
+                <button
+                  onClick={() => onNavigate(crumb.id, teamFolderId)}
+                  className="truncate text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {crumb.name}
+                </button>
+              )}
+            </span>
+          ))}
+        </>
+      )}
     </div>
   );
 }

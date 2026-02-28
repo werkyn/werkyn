@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useTrashedFiles, useRestoreFile, useDeleteFilePermanently, useFileAttachmentCount, type DriveFile } from "../api";
+import { useInfiniteScroll } from "../hooks/use-infinite-scroll";
 import { getFileIcon } from "@/lib/file-icons";
 import { timeAgo } from "@/lib/time-ago";
 import { FileActionMenu } from "./file-action-menu";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +25,8 @@ export function TrashView({ workspaceId }: TrashViewProps) {
     useTrashedFiles(workspaceId);
   const restoreFile = useRestoreFile(workspaceId);
   const deletePermanently = useDeleteFilePermanently(workspaceId);
+  const sentinelRef = useInfiniteScroll(!!hasNextPage, isFetchingNextPage, fetchNextPage);
+
   const [confirmDelete, setConfirmDelete] = useState<DriveFile | null>(null);
   const { data: attachmentCountData } = useFileAttachmentCount(
     workspaceId,
@@ -63,9 +67,9 @@ export function TrashView({ workspaceId }: TrashViewProps) {
       <table className="w-full">
         <thead>
           <tr className="border-b text-left text-xs text-muted-foreground">
-            <th className="px-3 py-2 font-medium">Name</th>
-            <th className="px-3 py-2 font-medium w-28">Trashed</th>
-            <th className="px-3 py-2 w-10" />
+            <th scope="col" className="px-3 py-2 font-medium">Name</th>
+            <th scope="col" className="px-3 py-2 font-medium w-28">Trashed</th>
+            <th scope="col" className="px-3 py-2 w-10" />
           </tr>
         </thead>
         <tbody>
@@ -100,15 +104,10 @@ export function TrashView({ workspaceId }: TrashViewProps) {
       </table>
 
       {hasNextPage && (
-        <div className="flex justify-center py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-          >
-            {isFetchingNextPage ? "Loading..." : "Load more"}
-          </Button>
+        <div ref={sentinelRef} className="flex justify-center py-4">
+          {isFetchingNextPage && (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          )}
         </div>
       )}
 

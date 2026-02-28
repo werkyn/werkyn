@@ -36,8 +36,8 @@ export function WikiEditor({ initialContent, readOnly = false, onChange }: WikiE
       const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
 
       const formData = new FormData();
-      formData.append("file", file);
       formData.append("purpose", "general");
+      formData.append("file", file);
 
       const response = await fetch(`${baseUrl}/uploads`, {
         method: "POST",

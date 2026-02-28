@@ -1,5 +1,5 @@
-import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { DriveFile } from "../api";
+import { useFileDragDrop } from "../hooks/use-file-drag-drop";
 import { getFileIcon, formatFileSize } from "@/lib/file-icons";
 import { timeAgo } from "@/lib/time-ago";
 import { FileActionMenu } from "./file-action-menu";
@@ -25,37 +25,36 @@ export function FileRow({
   onTrash,
 }: FileRowProps) {
   const Icon = getFileIcon(file.mimeType, file.isFolder);
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef: setDragRef,
-    isDragging,
-  } = useDraggable({
-    id: `drag-${file.id}`,
-    data: { id: file.id, type: "file", file },
-    disabled: !canEdit,
-  });
-
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: `drop-${file.id}`,
-    data: { id: file.id, type: "folder" },
-    disabled: !file.isFolder,
-  });
+  const { attributes, listeners, setNodeRef, isDragging, isOver } = useFileDragDrop(file, canEdit);
 
   return (
     <tr
-      ref={(node) => {
-        setDragRef(node);
-        setDropRef(node);
-      }}
+      ref={setNodeRef}
+      {...(canEdit ? { ...listeners, ...attributes } : {})}
+      tabIndex={0}
       className={cn(
-        "border-b hover:bg-accent/50 transition-colors cursor-default",
+        "border-b hover:bg-accent/50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+        file.isFolder ? "cursor-pointer" : "cursor-default",
         isDragging && "opacity-50",
         isOver && file.isFolder && "bg-primary/10 ring-1 ring-primary",
       )}
-      onDoubleClick={() => file.isFolder && onNavigate(file.id)}
-      {...(canEdit ? { ...listeners, ...attributes } : {})}
+      onClick={() => file.isFolder && onNavigate(file.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (file.isFolder) onNavigate(file.id);
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          const next = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement | null;
+          next?.focus();
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          const prev = (e.currentTarget as HTMLElement).previousElementSibling as HTMLElement | null;
+          prev?.focus();
+        }
+      }}
     >
       <td className="px-3 py-2">
         <div className="flex items-center gap-2 min-w-0">

@@ -1,5 +1,5 @@
-import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { DriveFile } from "../api";
+import { useFileDragDrop } from "../hooks/use-file-drag-drop";
 import { getFileIcon, formatFileSize } from "@/lib/file-icons";
 import { FileActionMenu } from "./file-action-menu";
 import { cn } from "@/lib/utils";
@@ -24,37 +24,26 @@ export function FileCard({
   onTrash,
 }: FileCardProps) {
   const Icon = getFileIcon(file.mimeType, file.isFolder);
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef: setDragRef,
-    isDragging,
-  } = useDraggable({
-    id: `drag-${file.id}`,
-    data: { id: file.id, type: "file", file },
-    disabled: !canEdit,
-  });
-
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: `drop-${file.id}`,
-    data: { id: file.id, type: "folder" },
-    disabled: !file.isFolder,
-  });
+  const { attributes, listeners, setNodeRef, isDragging, isOver } = useFileDragDrop(file, canEdit);
 
   return (
     <div
-      ref={(node) => {
-        setDragRef(node);
-        setDropRef(node);
-      }}
+      ref={setNodeRef}
+      {...(canEdit ? { ...listeners, ...attributes } : {})}
+      tabIndex={0}
       className={cn(
-        "group relative flex flex-col items-center rounded-lg border p-4 hover:bg-accent/50 transition-colors cursor-default",
+        "group relative flex flex-col items-center rounded-lg border p-4 hover:bg-accent/50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        file.isFolder ? "cursor-pointer" : "cursor-default",
         isDragging && "opacity-50",
         isOver && file.isFolder && "ring-2 ring-primary bg-primary/5",
       )}
-      onDoubleClick={() => file.isFolder && onNavigate(file.id)}
-      {...(canEdit ? { ...listeners, ...attributes } : {})}
+      onClick={() => file.isFolder && onNavigate(file.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (file.isFolder) onNavigate(file.id);
+        }
+      }}
     >
       {canEdit && (
         <div className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition-opacity">

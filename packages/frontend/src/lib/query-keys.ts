@@ -34,6 +34,8 @@ export const queryKeys = {
     ["team-folders", { wid }] as const,
   teamFolder: (wid: string, tfid: string) =>
     ["team-folders", { wid, tfid }] as const,
+  fileAttachmentCount: (wid: string, fileId: string) =>
+    ["file-attachment-count", { wid, fileId }] as const,
   attachments: (entityType: string, entityId: string) =>
     ["attachments", { entityType, entityId }] as const,
   groups: (wid: string) => ["groups", { wid }] as const,

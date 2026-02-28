@@ -17,10 +17,10 @@ export function useUploadFile() {
       const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
 
       const formData = new FormData();
-      formData.append("file", file);
       if (purpose) {
         formData.append("purpose", purpose);
       }
+      formData.append("file", file);
 
       const response = await fetch(`${baseUrl}/uploads`, {
         method: "POST",

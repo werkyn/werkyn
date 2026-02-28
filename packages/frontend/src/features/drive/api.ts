@@ -60,8 +60,21 @@ export interface TeamFolderMember {
   };
 }
 
+export interface TeamFolderGroup {
+  id: string;
+  teamFolderId: string;
+  groupId: string;
+  group: {
+    id: string;
+    name: string;
+    color: string | null;
+    _count: { members: number };
+  };
+}
+
 export interface TeamFolderDetail extends TeamFolder {
   members: TeamFolderMember[];
+  groups: TeamFolderGroup[];
 }
 
 interface FilesResponse {
@@ -71,7 +84,12 @@ interface FilesResponse {
 
 // ── File Queries ──
 
-export function useFiles(wid: string, parentId?: string | null, teamFolderId?: string) {
+export function useFiles(
+  wid: string,
+  parentId?: string | null,
+  teamFolderId?: string,
+  options?: { enabled?: boolean },
+) {
   return useInfiniteQuery({
     queryKey: queryKeys.files(wid, parentId, teamFolderId),
     queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
@@ -88,6 +106,7 @@ export function useFiles(wid: string, parentId?: string | null, teamFolderId?: s
     },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -169,17 +188,22 @@ export function uploadSingleFile(
   wid: string,
   file: File,
   parentId?: string | null,
+  teamFolderId?: string,
   onProgress?: (loaded: number, total: number) => void,
-): Promise<DriveFile> {
-  return new Promise((resolve, reject) => {
+): { promise: Promise<DriveFile>; abort: () => void } {
+  let xhrRef: XMLHttpRequest | null = null;
+
+  const promise = new Promise<DriveFile>((resolve, reject) => {
     const token = useAuthStore.getState().accessToken;
     const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
 
     const formData = new FormData();
-    formData.append("file", file);
     if (parentId) formData.append("parentId", parentId);
+    if (teamFolderId) formData.append("teamFolderId", teamFolderId);
+    formData.append("file", file);
 
     const xhr = new XMLHttpRequest();
+    xhrRef = xhr;
     xhr.open("POST", `${baseUrl}/workspaces/${wid}/files/upload`);
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     xhr.withCredentials = true;
@@ -208,9 +232,12 @@ export function uploadSingleFile(
       }
     };
 
+    xhr.onabort = () => reject(new DOMException("Upload aborted", "AbortError"));
     xhr.onerror = () => reject(new Error(`Upload failed: ${file.name}`));
     xhr.send(formData);
   });
+
+  return { promise, abort: () => xhrRef?.abort() };
 }
 
 export function useInvalidateFiles(wid: string, parentId?: string | null, teamFolderId?: string) {
@@ -245,6 +272,8 @@ export function useMoveFile(wid: string) {
         .patch(`workspaces/${wid}/files/${fileId}`, { json: { parentId } })
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
+      // Broad invalidation: move affects both source and destination folders,
+      // and we don't track the source folder here.
       qc.invalidateQueries({ queryKey: ["files"] });
     },
   });
@@ -261,6 +290,7 @@ export function useTrashFile(wid: string, parentId?: string | null, teamFolderId
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.files(wid, parentId, teamFolderId) });
+      qc.invalidateQueries({ queryKey: queryKeys.trashedFiles(wid) });
     },
   });
 }
@@ -275,6 +305,7 @@ export function useRestoreFile(wid: string) {
         })
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
+      // Broad invalidation: restored file's original parent folder is unknown.
       qc.invalidateQueries({ queryKey: ["files"] });
     },
   });
@@ -286,6 +317,7 @@ export function useDeleteFilePermanently(wid: string) {
     mutationFn: (fileId: string) =>
       api.delete(`workspaces/${wid}/files/${fileId}`).then(() => {}),
     onSuccess: () => {
+      // Broad invalidation: permanently deleted file may have been in any folder.
       qc.invalidateQueries({ queryKey: ["files"] });
     },
   });
@@ -293,7 +325,7 @@ export function useDeleteFilePermanently(wid: string) {
 
 export function useFileAttachmentCount(wid: string, fileId: string | null) {
   return useQuery({
-    queryKey: ["files", { wid, fileId, attachmentCount: true }],
+    queryKey: queryKeys.fileAttachmentCount(wid, fileId!),
     queryFn: () =>
       api
         .get(`workspaces/${wid}/files/${fileId}/attachments-count`)
@@ -303,35 +335,37 @@ export function useFileAttachmentCount(wid: string, fileId: string | null) {
 }
 
 export function useDownloadFile(wid: string) {
-  return async (fileId: string, fileName: string) => {
-    const token = useAuthStore.getState().accessToken;
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+  return useMutation({
+    mutationFn: async ({ fileId, fileName }: { fileId: string; fileName: string }) => {
+      const token = useAuthStore.getState().accessToken;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
 
-    const response = await fetch(
-      `${baseUrl}/workspaces/${wid}/files/${fileId}/download`,
-      {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      const response = await fetch(
+        `${baseUrl}/workspaces/${wid}/files/${fileId}/download`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
         },
-        credentials: "include",
-      },
-    );
+      );
 
-    if (!response.ok) throw new Error("Download failed");
+      if (!response.ok) throw new Error("Download failed");
 
-    const blob = await response.blob();
-    // Force generic type so the browser respects the filename extension
-    // instead of inferring one from the MIME type (e.g. .qt for video/quicktime)
-    const downloadBlob = new Blob([blob], { type: "application/octet-stream" });
-    const url = URL.createObjectURL(downloadBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+      const blob = await response.blob();
+      // Force generic type so the browser respects the filename extension
+      // instead of inferring one from the MIME type (e.g. .qt for video/quicktime)
+      const downloadBlob = new Blob([blob], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(downloadBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+  });
 }
 
 // ── Team Folder Mutations ──
