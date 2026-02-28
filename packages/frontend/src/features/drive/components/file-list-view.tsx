@@ -8,8 +8,14 @@ interface FileListViewProps {
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   canEdit: boolean;
+  selectable?: boolean;
+  selectedIds?: Set<string>;
+  allSelected?: boolean;
+  onToggleAll?: () => void;
+  onSelect?: (file: DriveFile, event: React.MouseEvent) => void;
   onLoadMore: () => void;
   onNavigate: (folderId: string) => void;
+  onFileClick?: (file: DriveFile) => void;
   onDownload: (file: DriveFile) => void;
   onRename: (file: DriveFile) => void;
   onMove: (file: DriveFile) => void;
@@ -21,8 +27,14 @@ export function FileListView({
   hasNextPage,
   isFetchingNextPage,
   canEdit,
+  selectable,
+  selectedIds,
+  allSelected,
+  onToggleAll,
+  onSelect,
   onLoadMore,
   onNavigate,
+  onFileClick,
   onDownload,
   onRename,
   onMove,
@@ -44,6 +56,16 @@ export function FileListView({
       <table className="w-full">
         <thead>
           <tr className="border-b text-left text-xs text-muted-foreground">
+            {selectable && (
+              <th scope="col" className="w-8 px-2 py-2">
+                <input
+                  type="checkbox"
+                  checked={!!allSelected}
+                  onChange={() => onToggleAll?.()}
+                  className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+                />
+              </th>
+            )}
             <th scope="col" className="px-3 py-2 font-medium">Name</th>
             <th scope="col" className="px-3 py-2 font-medium w-24">Size</th>
             <th scope="col" className="px-3 py-2 font-medium w-32">Uploaded by</th>
@@ -57,7 +79,11 @@ export function FileListView({
               key={file.id}
               file={file}
               canEdit={canEdit}
+              selectable={selectable}
+              selected={selectedIds?.has(file.id)}
+              onSelect={onSelect}
               onNavigate={onNavigate}
+              onFileClick={onFileClick}
               onDownload={onDownload}
               onRename={onRename}
               onMove={onMove}

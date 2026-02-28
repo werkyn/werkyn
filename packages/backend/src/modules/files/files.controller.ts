@@ -106,6 +106,7 @@ export async function downloadFileHandler(
   reply: FastifyReply,
 ) {
   const params = request.params as { wid: string; fid: string };
+  const query = request.query as { inline?: string };
 
   const { stream, file } = await filesService.downloadFile(
     request.server.storage,
@@ -117,13 +118,14 @@ export async function downloadFileHandler(
 
   const safeName = file.name.replace(/"/g, '\\"');
   const encodedName = encodeURIComponent(file.name);
+  const isInline = query.inline === "true";
 
   return reply
     .header(
       "Content-Disposition",
-      `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`,
+      `${isInline ? "inline" : "attachment"}; filename="${safeName}"; filename*=UTF-8''${encodedName}`,
     )
-    .header("Content-Type", "application/octet-stream")
+    .header("Content-Type", isInline && file.mimeType ? file.mimeType : "application/octet-stream")
     .send(stream);
 }
 

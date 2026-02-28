@@ -8,8 +8,12 @@ interface FileGridViewProps {
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   canEdit: boolean;
+  selectable?: boolean;
+  selectedIds?: Set<string>;
+  onSelect?: (file: DriveFile, event: React.MouseEvent) => void;
   onLoadMore: () => void;
   onNavigate: (folderId: string) => void;
+  onFileClick?: (file: DriveFile) => void;
   onDownload: (file: DriveFile) => void;
   onRename: (file: DriveFile) => void;
   onMove: (file: DriveFile) => void;
@@ -21,8 +25,12 @@ export function FileGridView({
   hasNextPage,
   isFetchingNextPage,
   canEdit,
+  selectable,
+  selectedIds,
+  onSelect,
   onLoadMore,
   onNavigate,
+  onFileClick,
   onDownload,
   onRename,
   onMove,
@@ -47,7 +55,11 @@ export function FileGridView({
             key={file.id}
             file={file}
             canEdit={canEdit}
+            selectable={selectable}
+            selected={selectedIds?.has(file.id)}
+            onSelect={onSelect}
             onNavigate={onNavigate}
+            onFileClick={onFileClick}
             onDownload={onDownload}
             onRename={onRename}
             onMove={onMove}

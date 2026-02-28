@@ -88,14 +88,22 @@ export function useFiles(
   wid: string,
   parentId?: string | null,
   teamFolderId?: string,
+  search?: string,
   options?: { enabled?: boolean },
 ) {
+  const isSearching = !!search;
   return useInfiniteQuery({
-    queryKey: queryKeys.files(wid, parentId, teamFolderId),
+    queryKey: isSearching
+      ? queryKeys.fileSearch(wid, search)
+      : queryKeys.files(wid, parentId, teamFolderId),
     queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
       const params = new URLSearchParams();
-      if (parentId) params.set("parentId", parentId);
-      if (teamFolderId) params.set("teamFolderId", teamFolderId);
+      if (isSearching) {
+        params.set("search", search);
+      } else {
+        if (parentId) params.set("parentId", parentId);
+        if (teamFolderId) params.set("teamFolderId", teamFolderId);
+      }
       if (pageParam) params.set("cursor", pageParam);
       params.set("limit", "50");
 
@@ -331,6 +339,59 @@ export function useFileAttachmentCount(wid: string, fileId: string | null) {
         .get(`workspaces/${wid}/files/${fileId}/attachments-count`)
         .json<{ data: { count: number } }>(),
     enabled: !!fileId,
+  });
+}
+
+export function useFilePreviewUrl(wid: string, fileId: string | null) {
+  return useQuery({
+    queryKey: ["file-preview", { wid, fileId }],
+    queryFn: async () => {
+      const token = useAuthStore.getState().accessToken;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+
+      const response = await fetch(
+        `${baseUrl}/workspaces/${wid}/files/${fileId}/download?inline=true`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        },
+      );
+
+      if (!response.ok) throw new Error("Preview failed");
+
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
+    },
+    enabled: !!fileId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useFileTextContent(wid: string, fileId: string | null) {
+  return useQuery({
+    queryKey: ["file-text", { wid, fileId }],
+    queryFn: async () => {
+      const token = useAuthStore.getState().accessToken;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+
+      const response = await fetch(
+        `${baseUrl}/workspaces/${wid}/files/${fileId}/download?inline=true`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        },
+      );
+
+      if (!response.ok) throw new Error("Preview failed");
+
+      return response.text();
+    },
+    enabled: !!fileId,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

@@ -8,7 +8,11 @@ import { cn } from "@/lib/utils";
 interface FileRowProps {
   file: DriveFile;
   canEdit: boolean;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelect?: (file: DriveFile, event: React.MouseEvent) => void;
   onNavigate: (folderId: string) => void;
+  onFileClick?: (file: DriveFile) => void;
   onDownload: (file: DriveFile) => void;
   onRename: (file: DriveFile) => void;
   onMove: (file: DriveFile) => void;
@@ -18,7 +22,11 @@ interface FileRowProps {
 export function FileRow({
   file,
   canEdit,
+  selectable,
+  selected,
+  onSelect,
   onNavigate,
+  onFileClick,
   onDownload,
   onRename,
   onMove,
@@ -34,15 +42,20 @@ export function FileRow({
       tabIndex={0}
       className={cn(
         "border-b hover:bg-accent/50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
-        file.isFolder ? "cursor-pointer" : "cursor-default",
+        "cursor-pointer",
         isDragging && "opacity-50",
         isOver && file.isFolder && "bg-primary/10 ring-1 ring-primary",
+        selected && "bg-primary/5",
       )}
-      onClick={() => file.isFolder && onNavigate(file.id)}
+      onClick={() => {
+        if (file.isFolder) onNavigate(file.id);
+        else onFileClick?.(file);
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           if (file.isFolder) onNavigate(file.id);
+          else onFileClick?.(file);
         }
         if (e.key === "ArrowDown") {
           e.preventDefault();
@@ -56,6 +69,20 @@ export function FileRow({
         }
       }}
     >
+      {selectable && (
+        <td className="w-8 px-2 py-2">
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={() => {}}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect?.(file, e as unknown as React.MouseEvent);
+            }}
+            className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+          />
+        </td>
+      )}
       <td className="px-3 py-2">
         <div className="flex items-center gap-2 min-w-0">
           <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />

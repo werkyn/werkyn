@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -9,7 +9,10 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { useFiles, useDownloadFile, useTrashFile, useMoveFile, useTeamFolders, type DriveFile } from "../api";
+import { FilePreviewSlideover } from "./file-preview-slideover";
+import { DriveBulkActions } from "./drive-bulk-actions";
 import { useFileUpload } from "../hooks/use-file-upload";
+import { useFileSelection } from "../hooks/use-file-selection";
 import { useAuthStore } from "@/stores/auth-store";
 import { usePermissions } from "@/hooks/use-permissions";
 import { getFileIcon } from "@/lib/file-icons";
@@ -23,6 +26,7 @@ import { MoveDialog } from "./move-dialog";
 import { UploadDropzone } from "./upload-dropzone";
 import { UploadProgress } from "./upload-progress";
 import { TeamFoldersSection } from "./team-folders-section";
+import { SearchInput } from "@/components/shared/search-input";
 import { Button } from "@/components/ui/button";
 import {
   FolderPlus,
@@ -67,11 +71,20 @@ export function DrivePage({
   const canEdit = permissions.canEdit;
   const isAdmin = membership?.role === "ADMIN";
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const isSearching = searchQuery.length > 0;
+
   // Determine if we're at root level (no folderId AND no teamFolderId)
   const isRoot = !folderId && !teamFolderId;
 
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage, isLoading, isError, refetch } =
-    useFiles(workspaceId, folderId ?? null, teamFolderId);
+    useFiles(
+      workspaceId,
+      isSearching ? null : (folderId ?? null),
+      isSearching ? undefined : teamFolderId,
+      isSearching ? searchQuery : undefined,
+    );
   const files = useMemo(() => (data?.pages ?? []).flatMap((p) => p.data), [data]);
 
   // Fetch team folder info for breadcrumbs
@@ -93,8 +106,11 @@ export function DrivePage({
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [renameFile, setRenameFile] = useState<DriveFile | null>(null);
   const [moveFileDialog, setMoveFileDialog] = useState<DriveFile | null>(null);
+  const [moveFileIds, setMoveFileIds] = useState<string[]>([]);
+  const [previewFile, setPreviewFile] = useState<DriveFile | null>(null);
   const [activeDrag, setActiveDrag] = useState<DriveFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const selection = useFileSelection();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -155,10 +171,42 @@ export function DrivePage({
     [trashFile],
   );
 
+  // Clear search and selection when folder/teamFolder changes
+  useEffect(() => {
+    setSearchQuery("");
+    selection.clear();
+  }, [folderId, teamFolderId]);
+
   const handleNavigate = useCallback(
-    (id: string) => onNavigate(id, teamFolderId),
-    [onNavigate, teamFolderId],
+    (id: string) => {
+      setSearchQuery("");
+      selection.clear();
+      onNavigate(id, teamFolderId);
+    },
+    [onNavigate, teamFolderId, selection],
   );
+
+  const fileIds = useMemo(() => files.map((f) => f.id), [files]);
+
+  const handleSelect = useCallback(
+    (file: DriveFile, event: React.MouseEvent) => {
+      selection.toggle(file.id, fileIds, event);
+    },
+    [selection, fileIds],
+  );
+
+  const handleToggleAll = useCallback(() => {
+    selection.toggleAll(fileIds);
+  }, [selection, fileIds]);
+
+  const selectedFiles = useMemo(
+    () => files.filter((f) => selection.selectedIds.has(f.id)),
+    [files, selection.selectedIds],
+  );
+
+  const handleMoveSelected = useCallback(() => {
+    setMoveFileIds(Array.from(selection.selectedIds));
+  }, [selection.selectedIds]);
 
   const dragOverlayIcon = activeDrag
     ? getFileIcon(activeDrag.mimeType, activeDrag.isFolder)
@@ -183,8 +231,14 @@ export function DrivePage({
           hasNextPage={!!hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           canEdit={canEdit}
+          selectable={canEdit}
+          selectedIds={selection.selectedIds}
+          allSelected={selection.allSelected(fileIds)}
+          onToggleAll={handleToggleAll}
+          onSelect={handleSelect}
           onLoadMore={handleLoadMore}
           onNavigate={handleNavigate}
+          onFileClick={setPreviewFile}
           onDownload={handleDownload}
           onRename={setRenameFile}
           onMove={setMoveFileDialog}
@@ -196,8 +250,12 @@ export function DrivePage({
           hasNextPage={!!hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           canEdit={canEdit}
+          selectable={canEdit}
+          selectedIds={selection.selectedIds}
+          onSelect={handleSelect}
           onLoadMore={handleLoadMore}
           onNavigate={handleNavigate}
+          onFileClick={setPreviewFile}
           onDownload={handleDownload}
           onRename={setRenameFile}
           onMove={setMoveFileDialog}
@@ -227,6 +285,11 @@ export function DrivePage({
             ) : (
               <>
                 <h1 className="text-2xl font-bold">Drive</h1>
+                <SearchInput
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="Search files..."
+                />
               </>
             )}
           </div>
@@ -295,7 +358,7 @@ export function DrivePage({
           )}
         </div>
         </div>
-        {!trash && (folderId || teamFolderId) && (
+        {!trash && !isSearching && (folderId || teamFolderId) && (
           <FileBreadcrumbs
             workspaceId={workspaceId}
             folderId={folderId}
@@ -303,6 +366,11 @@ export function DrivePage({
             teamFolderName={currentTeamFolder?.name}
             onNavigate={onNavigate}
           />
+        )}
+        {isSearching && (
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
+            Search results
+          </h3>
         )}
       </div>
 
@@ -318,8 +386,8 @@ export function DrivePage({
           disabled={!canEdit}
         >
           <div className="flex-1 overflow-y-auto">
-            {/* Team folders section — only at root */}
-            {isRoot && (
+            {/* Team folders section — only at root, hidden during search */}
+            {isRoot && !isSearching && (
               <TeamFoldersSection
                 workspaceId={workspaceId}
                 isAdmin={isAdmin}
@@ -327,8 +395,8 @@ export function DrivePage({
               />
             )}
 
-            {/* Personal files header at root */}
-            {isRoot && (
+            {/* Personal files header at root, hidden during search */}
+            {isRoot && !isSearching && (
               <div className="px-4 pt-3 pb-1">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
                   My Files
@@ -381,7 +449,12 @@ export function DrivePage({
 
       <MoveDialog
         file={moveFileDialog}
-        onClose={() => setMoveFileDialog(null)}
+        fileIds={moveFileIds.length > 0 ? moveFileIds : undefined}
+        onClose={() => {
+          setMoveFileDialog(null);
+          setMoveFileIds([]);
+          if (moveFileIds.length > 0) selection.clear();
+        }}
         workspaceId={workspaceId}
       />
 
@@ -389,6 +462,28 @@ export function DrivePage({
         uploads={uploads}
         onDismiss={clearUploads}
       />
+
+      {/* Bulk Actions */}
+      {selection.count > 0 && (
+        <DriveBulkActions
+          workspaceId={workspaceId}
+          selectedFiles={selectedFiles}
+          onClear={selection.clear}
+          onMoveSelected={handleMoveSelected}
+          parentId={folderId ?? null}
+          teamFolderId={teamFolderId}
+        />
+      )}
+
+      {/* File Preview */}
+      {previewFile && (
+        <FilePreviewSlideover
+          file={previewFile}
+          workspaceId={workspaceId}
+          onClose={() => setPreviewFile(null)}
+          onDownload={handleDownload}
+        />
+      )}
     </div>
   );
 }

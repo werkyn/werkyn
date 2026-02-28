@@ -7,7 +7,11 @@ import { cn } from "@/lib/utils";
 interface FileCardProps {
   file: DriveFile;
   canEdit: boolean;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelect?: (file: DriveFile, event: React.MouseEvent) => void;
   onNavigate: (folderId: string) => void;
+  onFileClick?: (file: DriveFile) => void;
   onDownload: (file: DriveFile) => void;
   onRename: (file: DriveFile) => void;
   onMove: (file: DriveFile) => void;
@@ -17,7 +21,11 @@ interface FileCardProps {
 export function FileCard({
   file,
   canEdit,
+  selectable,
+  selected,
+  onSelect,
   onNavigate,
+  onFileClick,
   onDownload,
   onRename,
   onMove,
@@ -33,18 +41,40 @@ export function FileCard({
       tabIndex={0}
       className={cn(
         "group relative flex flex-col items-center rounded-lg border p-4 hover:bg-accent/50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        file.isFolder ? "cursor-pointer" : "cursor-default",
+        "cursor-pointer",
         isDragging && "opacity-50",
         isOver && file.isFolder && "ring-2 ring-primary bg-primary/5",
+        selected && "bg-primary/5",
       )}
-      onClick={() => file.isFolder && onNavigate(file.id)}
+      onClick={() => {
+        if (file.isFolder) onNavigate(file.id);
+        else onFileClick?.(file);
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           if (file.isFolder) onNavigate(file.id);
+          else onFileClick?.(file);
         }
       }}
     >
+      {selectable && (
+        <div className="absolute left-1 top-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={selected ? { opacity: 1 } : undefined}
+        >
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={() => {}}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect?.(file, e as unknown as React.MouseEvent);
+            }}
+            className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+          />
+        </div>
+      )}
+
       {canEdit && (
         <div className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <FileActionMenu

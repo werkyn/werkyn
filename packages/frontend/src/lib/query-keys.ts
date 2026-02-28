@@ -26,6 +26,8 @@ export const queryKeys = {
   notificationPreferences: ["notifications", "preferences"] as const,
   files: (wid: string, parentId?: string | null, teamFolderId?: string) =>
     ["files", { wid, parentId: parentId ?? null, teamFolderId: teamFolderId ?? null }] as const,
+  fileSearch: (wid: string, search: string) =>
+    ["files", { wid, search }] as const,
   trashedFiles: (wid: string) =>
     ["files", { wid, trashed: true }] as const,
   fileBreadcrumbs: (wid: string, fid: string) =>
