@@ -47,7 +47,7 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
         collapsed ? "w-0 overflow-hidden" : "w-64",
       )}
     >
-      <div className="border-b">
+      <div>
         <div className="flex items-center justify-between px-3 py-3">
           <img
             src="/werkyn_logo.svg"
@@ -73,7 +73,8 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
             </button>
           </div>
         </div>
-        <div className="px-3 pb-3">
+        <div className="border-b mx-3" />
+        <div className="px-3 py-3">
           <WorkspaceSwitcher currentSlug={workspaceSlug} />
         </div>
       </div>
