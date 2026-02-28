@@ -1,14 +1,16 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   useFiles,
   useTeamFolders,
   useCreateFolder,
-  useInvalidateFiles,
-  uploadSingleFile,
   type DriveFile,
 } from "../api";
-import type { UploadItem } from "./upload-progress";
+import { useFileUpload } from "../hooks/use-file-upload";
 import { getFileIcon, formatFileSize } from "@/lib/file-icons";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 import {
   Folder,
   ArrowLeft,
@@ -48,7 +50,6 @@ export function DriveFilePicker({
     { id: null, name: "Drive" },
   ]);
   const [selectedFile, setSelectedFile] = useState<DriveFile | null>(null);
-  const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
@@ -72,11 +73,18 @@ export function DriveFilePicker({
     currentFolder.id,
     currentTeamFolderId,
   );
-  const invalidateFiles = useInvalidateFiles(
+
+  const onFileUploaded = useCallback((file: DriveFile) => {
+    setSelectedFile(file);
+  }, []);
+
+  const { uploads, handleUpload, clearUploads } = useFileUpload({
     workspaceId,
-    currentFolder.id,
-    currentTeamFolderId,
-  );
+    parentId: currentFolder.id,
+    teamFolderId: currentTeamFolderId,
+    onFileUploaded,
+    autoClearMs: 2000,
+  });
 
   const allFiles = data?.pages?.flatMap((p) => p.data) ?? [];
 
@@ -112,7 +120,7 @@ export function DriveFilePicker({
   const handleClose = () => {
     setFolderStack([{ id: null, name: "Drive" }]);
     setSelectedFile(null);
-    setUploads([]);
+    clearUploads();
     setShowNewFolder(false);
     setNewFolderName("");
     setIsDragging(false);
@@ -130,102 +138,6 @@ export function DriveFilePicker({
       },
       onError: (err) => toast.error(err.message || "Failed to create folder"),
     });
-  };
-
-  const handleUpload = (fileList: File[]) => {
-    const parentId = currentFolder.id;
-    const items: UploadItem[] = fileList.map((f) => ({
-      id: Math.random().toString(36).slice(2) + Date.now().toString(36),
-      name: f.name,
-      size: f.size,
-      status: "uploading" as const,
-      progress: 0,
-      loaded: 0,
-      speed: 0,
-    }));
-    setUploads((prev) => [...prev, ...items]);
-
-    const uploadAll = async () => {
-      let lastUploaded: DriveFile | null = null;
-      for (let i = 0; i < fileList.length; i++) {
-        const file = fileList[i];
-        const item = items[i];
-        let startTime = Date.now();
-        let lastLoaded = 0;
-
-        try {
-          const uploaded = await uploadSingleFile(
-            workspaceId,
-            file,
-            parentId,
-            (loaded, total) => {
-              const now = Date.now();
-              const elapsed = (now - startTime) / 1000;
-              const speed =
-                elapsed > 0
-                  ? (loaded - lastLoaded) / Math.max(elapsed, 0.1)
-                  : 0;
-              lastLoaded = loaded;
-              startTime = now;
-
-              setUploads((prev) =>
-                prev.map((u) =>
-                  u.id === item.id
-                    ? {
-                        ...u,
-                        progress: (loaded / total) * 100,
-                        loaded,
-                        speed,
-                      }
-                    : u,
-                ),
-              );
-            },
-          );
-          lastUploaded = uploaded;
-          setUploads((prev) =>
-            prev.map((u) =>
-              u.id === item.id
-                ? {
-                    ...u,
-                    status: "done" as const,
-                    progress: 100,
-                    loaded: file.size,
-                    speed: 0,
-                  }
-                : u,
-            ),
-          );
-        } catch (err) {
-          setUploads((prev) =>
-            prev.map((u) =>
-              u.id === item.id
-                ? { ...u, status: "error" as const, speed: 0 }
-                : u,
-            ),
-          );
-          toast.error(
-            err instanceof Error
-              ? err.message
-              : `Upload failed: ${file.name}`,
-          );
-        }
-      }
-
-      invalidateFiles();
-
-      // Auto-select the last uploaded file
-      if (lastUploaded) {
-        setSelectedFile(lastUploaded);
-      }
-
-      // Auto-clear completed uploads after 2s
-      setTimeout(() => {
-        setUploads((prev) => prev.filter((u) => u.status === "uploading"));
-      }, 2000);
-    };
-
-    uploadAll();
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,11 +174,9 @@ export function DriveFilePicker({
     if (droppedFiles.length > 0) handleUpload(droppedFiles);
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg border bg-popover shadow-lg flex flex-col max-h-[70vh]">
+    <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+      <DialogContent showCloseButton={false} className="max-w-md p-0 gap-0 flex flex-col max-h-[70vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-2">
@@ -275,6 +185,7 @@ export function DriveFilePicker({
           </div>
           <button
             onClick={handleClose}
+            aria-label="Close file picker"
             className="rounded p-1 hover:bg-accent transition-colors"
           >
             <X className="h-4 w-4 text-muted-foreground" />
@@ -286,6 +197,7 @@ export function DriveFilePicker({
           {folderStack.length > 1 && (
             <button
               onClick={goBack}
+              aria-label="Go back"
               className="rounded p-1 hover:bg-accent transition-colors mr-1"
             >
               <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground" />
@@ -504,7 +416,7 @@ export function DriveFilePicker({
             Attach
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

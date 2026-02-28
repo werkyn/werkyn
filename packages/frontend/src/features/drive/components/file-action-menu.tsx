@@ -31,7 +31,10 @@ export function FileActionMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="rounded-md p-1 hover:bg-accent transition-colors">
+        <button
+          aria-label={`Actions for ${file.name}`}
+          className="rounded-md p-1 hover:bg-accent transition-colors"
+        >
           <MoreHorizontal className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>

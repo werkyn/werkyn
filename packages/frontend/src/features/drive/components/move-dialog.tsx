@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useFiles, useMoveFile, type DriveFile } from "../api";
-import { Folder, ChevronRight } from "lucide-react";
+import { Folder, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -24,6 +24,14 @@ export function MoveDialog({ file, onClose, workspaceId }: MoveDialogProps) {
     new Set(),
   );
   const moveFile = useMoveFile(workspaceId);
+
+  // Reset state when a different file is opened (component is never unmounted)
+  useEffect(() => {
+    if (file) {
+      setSelectedFolder(null);
+      setExpandedFolders(new Set());
+    }
+  }, [file?.id]);
 
   // Scope to same context as the file being moved
   const fileTeamFolderId = file?.teamFolderId ?? undefined;
@@ -132,10 +140,11 @@ function FolderItem({
   depth: number;
 }) {
   const isExpanded = expandedFolders.has(folder.id);
-  const { data: childData } = useFiles(
+  const { data: childData, isLoading } = useFiles(
     workspaceId,
-    isExpanded ? folder.id : undefined,
+    folder.id,
     teamFolderId,
+    { enabled: isExpanded },
   );
   const childFolders = isExpanded
     ? (childData?.pages ?? [])
@@ -171,7 +180,16 @@ function FolderItem({
         <span className="truncate">{folder.name}</span>
       </div>
 
+      {isExpanded && isLoading && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground"
+          style={{ paddingLeft: `${(depth + 1) * 16 + 12}px` }}
+        >
+          <Loader2 className="h-3 w-3 animate-spin" />
+        </div>
+      )}
       {isExpanded &&
+        !isLoading &&
         childFolders.map((child) => (
           <FolderItem
             key={child.id}

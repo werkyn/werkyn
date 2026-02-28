@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, AlertCircle, X } from "lucide-react";
+import { formatFileSize } from "@/lib/file-icons";
 
 export interface UploadItem {
   id: string;
@@ -9,14 +10,6 @@ export interface UploadItem {
   progress: number; // 0-100
   loaded: number; // bytes uploaded
   speed: number; // bytes per second
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function formatSpeed(bytesPerSecond: number): string {
@@ -52,6 +45,7 @@ export function UploadProgress({ uploads, onDismiss }: UploadProgressProps) {
           <span className="text-sm font-medium">{headerText}</span>
           <button
             onClick={onDismiss}
+            aria-label="Dismiss upload progress"
             className="rounded-md p-0.5 hover:bg-accent transition-colors"
           >
             <X className="h-4 w-4" />
@@ -84,7 +78,7 @@ export function UploadProgress({ uploads, onDismiss }: UploadProgressProps) {
                     />
                   </div>
                   <div className="flex justify-between text-[11px] text-muted-foreground">
-                    <span>{formatBytes(item.loaded)} / {formatBytes(item.size)}</span>
+                    <span>{formatFileSize(item.loaded)} / {formatFileSize(item.size)}</span>
                     <span>{Math.round(item.progress)}%</span>
                   </div>
                 </div>

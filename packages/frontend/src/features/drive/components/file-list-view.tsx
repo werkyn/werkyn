@@ -1,6 +1,7 @@
 import type { DriveFile } from "../api";
+import { useInfiniteScroll } from "../hooks/use-infinite-scroll";
 import { FileRow } from "./file-row";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 interface FileListViewProps {
   files: DriveFile[];
@@ -27,6 +28,8 @@ export function FileListView({
   onMove,
   onTrash,
 }: FileListViewProps) {
+  const sentinelRef = useInfiniteScroll(hasNextPage, isFetchingNextPage, onLoadMore);
+
   if (files.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -41,11 +44,11 @@ export function FileListView({
       <table className="w-full">
         <thead>
           <tr className="border-b text-left text-xs text-muted-foreground">
-            <th className="px-3 py-2 font-medium">Name</th>
-            <th className="px-3 py-2 font-medium w-24">Size</th>
-            <th className="px-3 py-2 font-medium w-32">Uploaded by</th>
-            <th className="px-3 py-2 font-medium w-28">Modified</th>
-            <th className="px-3 py-2 w-10" />
+            <th scope="col" className="px-3 py-2 font-medium">Name</th>
+            <th scope="col" className="px-3 py-2 font-medium w-24">Size</th>
+            <th scope="col" className="px-3 py-2 font-medium w-32">Uploaded by</th>
+            <th scope="col" className="px-3 py-2 font-medium w-28">Modified</th>
+            <th scope="col" className="px-3 py-2 w-10" />
           </tr>
         </thead>
         <tbody>
@@ -65,15 +68,10 @@ export function FileListView({
       </table>
 
       {hasNextPage && (
-        <div className="flex justify-center py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onLoadMore}
-            disabled={isFetchingNextPage}
-          >
-            {isFetchingNextPage ? "Loading..." : "Load more"}
-          </Button>
+        <div ref={sentinelRef} className="flex justify-center py-4">
+          {isFetchingNextPage && (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          )}
         </div>
       )}
     </div>

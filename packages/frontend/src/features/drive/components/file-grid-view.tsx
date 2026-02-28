@@ -1,6 +1,7 @@
 import type { DriveFile } from "../api";
+import { useInfiniteScroll } from "../hooks/use-infinite-scroll";
 import { FileCard } from "./file-card";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 interface FileGridViewProps {
   files: DriveFile[];
@@ -27,6 +28,8 @@ export function FileGridView({
   onMove,
   onTrash,
 }: FileGridViewProps) {
+  const sentinelRef = useInfiniteScroll(hasNextPage, isFetchingNextPage, onLoadMore);
+
   if (files.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -54,15 +57,10 @@ export function FileGridView({
       </div>
 
       {hasNextPage && (
-        <div className="flex justify-center py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onLoadMore}
-            disabled={isFetchingNextPage}
-          >
-            {isFetchingNextPage ? "Loading..." : "Load more"}
-          </Button>
+        <div ref={sentinelRef} className="flex justify-center py-4">
+          {isFetchingNextPage && (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          )}
         </div>
       )}
     </div>

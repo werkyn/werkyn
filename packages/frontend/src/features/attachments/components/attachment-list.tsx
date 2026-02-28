@@ -30,8 +30,9 @@ export function AttachmentList({
   const attachments = data?.data ?? [];
 
   const handleDownload = (attachmentId: string, name: string) => {
-    downloadAttachment(attachmentId, name).catch(() =>
-      toast.error("Download failed"),
+    downloadAttachment.mutate(
+      { attachmentId, fileName: name },
+      { onError: () => toast.error("Download failed") },
     );
   };
 
