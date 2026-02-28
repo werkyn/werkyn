@@ -27,6 +27,7 @@ export function FilePreviewSlideover({
   const { data: blobUrl } = useFilePreviewUrl(
     workspaceId,
     needsBlobUrl ? file.id : null,
+    file.mimeType,
   );
   const { data: textContent } = useFileTextContent(
     workspaceId,

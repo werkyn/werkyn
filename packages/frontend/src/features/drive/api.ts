@@ -342,7 +342,7 @@ export function useFileAttachmentCount(wid: string, fileId: string | null) {
   });
 }
 
-export function useFilePreviewUrl(wid: string, fileId: string | null) {
+export function useFilePreviewUrl(wid: string, fileId: string | null, mimeType?: string | null) {
   return useQuery({
     queryKey: ["file-preview", { wid, fileId }],
     queryFn: async () => {
@@ -361,7 +361,9 @@ export function useFilePreviewUrl(wid: string, fileId: string | null) {
 
       if (!response.ok) throw new Error("Preview failed");
 
-      const blob = await response.blob();
+      const rawBlob = await response.blob();
+      // Ensure the blob has the correct MIME type (needed for PDF viewer in iframes)
+      const blob = mimeType ? new Blob([rawBlob], { type: mimeType }) : rawBlob;
       return URL.createObjectURL(blob);
     },
     enabled: !!fileId,
