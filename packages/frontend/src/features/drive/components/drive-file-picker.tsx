@@ -59,6 +59,10 @@ export function DriveFilePicker({
   const isRoot = folderStack.length === 1;
   const currentTeamFolderId = currentFolder.teamFolderId;
 
+  // Refs to avoid stale closures in async upload handler
+  const currentFolderRef = useRef(currentFolder);
+  currentFolderRef.current = currentFolder;
+
   const { data, isLoading } = useFiles(
     workspaceId,
     currentFolder.id,
@@ -77,6 +81,8 @@ export function DriveFilePicker({
     currentFolder.id,
     currentTeamFolderId,
   );
+  const invalidateFilesRef = useRef(invalidateFiles);
+  invalidateFilesRef.current = invalidateFiles;
 
   const allFiles = data?.pages?.flatMap((p) => p.data) ?? [];
 
@@ -146,6 +152,8 @@ export function DriveFilePicker({
       setUploads((prev) => [...prev, ...items]);
 
       const uploadAll = async () => {
+        // Read from refs to guarantee latest values in async context
+        const parentId = currentFolderRef.current.id;
         let lastUploaded: DriveFile | null = null;
         for (let i = 0; i < fileList.length; i++) {
           const file = fileList[i];
@@ -157,7 +165,7 @@ export function DriveFilePicker({
             const uploaded = await uploadSingleFile(
               workspaceId,
               file,
-              currentFolder.id,
+              parentId,
               (loaded, total) => {
                 const now = Date.now();
                 const elapsed = (now - startTime) / 1000;
@@ -212,7 +220,7 @@ export function DriveFilePicker({
           }
         }
 
-        invalidateFiles();
+        invalidateFilesRef.current();
 
         // Auto-select the last uploaded file
         if (lastUploaded) {
@@ -227,7 +235,7 @@ export function DriveFilePicker({
 
       uploadAll();
     },
-    [workspaceId, currentFolder.id, invalidateFiles],
+    [workspaceId],
   );
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
