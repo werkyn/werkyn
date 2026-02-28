@@ -95,7 +95,7 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
               </button>
             </div>
           </div>
-          <hr className="border-sidebar-border dark:border-white/10" />
+          <hr className="mx-3 border-sidebar-border dark:border-white/10" />
           <div className="px-3 py-3">
             <WorkspaceSwitcher currentSlug={workspaceSlug} />
           </div>
