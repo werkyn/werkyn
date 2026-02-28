@@ -2,6 +2,7 @@ import type { DriveFile } from "../api";
 import { useInfiniteScroll } from "../hooks/use-infinite-scroll";
 import { FileRow } from "./file-row";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface FileListViewProps {
   files: DriveFile[];
@@ -10,6 +11,7 @@ interface FileListViewProps {
   canEdit: boolean;
   selectable?: boolean;
   selectedIds?: Set<string>;
+  anySelected?: boolean;
   allSelected?: boolean;
   onToggleAll?: () => void;
   onSelect?: (file: DriveFile, event: React.MouseEvent) => void;
@@ -29,6 +31,7 @@ export function FileListView({
   canEdit,
   selectable,
   selectedIds,
+  anySelected,
   allSelected,
   onToggleAll,
   onSelect,
@@ -55,18 +58,25 @@ export function FileListView({
     <div>
       <table className="w-full">
         <thead>
-          <tr className="border-b text-left text-xs text-muted-foreground">
-            {selectable && (
-              <th scope="col" className="w-8 px-2 py-2">
-                <input
-                  type="checkbox"
-                  checked={!!allSelected}
-                  onChange={() => onToggleAll?.()}
-                  className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
-                />
-              </th>
-            )}
-            <th scope="col" className="px-3 py-2 font-medium">Name</th>
+          <tr className="group/header border-b text-left text-xs text-muted-foreground">
+            <th scope="col" className="px-3 py-2 font-medium">
+              <div className="flex items-center gap-2">
+                {selectable && (
+                  <div className="relative h-4 w-4 shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={!!allSelected}
+                      onChange={() => onToggleAll?.()}
+                      className={cn(
+                        "h-4 w-4 rounded border-input accent-primary cursor-pointer transition-opacity",
+                        anySelected ? "opacity-100" : "opacity-0 group-hover/header:opacity-100",
+                      )}
+                    />
+                  </div>
+                )}
+                Name
+              </div>
+            </th>
             <th scope="col" className="px-3 py-2 font-medium w-24">Size</th>
             <th scope="col" className="px-3 py-2 font-medium w-32">Uploaded by</th>
             <th scope="col" className="px-3 py-2 font-medium w-28">Modified</th>
@@ -81,6 +91,7 @@ export function FileListView({
               canEdit={canEdit}
               selectable={selectable}
               selected={selectedIds?.has(file.id)}
+              anySelected={anySelected}
               onSelect={onSelect}
               onNavigate={onNavigate}
               onFileClick={onFileClick}

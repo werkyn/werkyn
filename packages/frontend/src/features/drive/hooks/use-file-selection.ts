@@ -38,15 +38,9 @@ export function useFileSelection(): UseFileSelectionReturn {
           }
         }
 
-        if (event?.metaKey || event?.ctrlKey) {
-          // Toggle individual
-          if (next.has(id)) next.delete(id);
-          else next.add(id);
-        } else {
-          // Plain click — select only this item
-          next.clear();
-          next.add(id);
-        }
+        // Checkbox clicks always toggle individually
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
 
         return next;
       });

@@ -10,6 +10,7 @@ interface FileGridViewProps {
   canEdit: boolean;
   selectable?: boolean;
   selectedIds?: Set<string>;
+  anySelected?: boolean;
   onSelect?: (file: DriveFile, event: React.MouseEvent) => void;
   onLoadMore: () => void;
   onNavigate: (folderId: string) => void;
@@ -27,6 +28,7 @@ export function FileGridView({
   canEdit,
   selectable,
   selectedIds,
+  anySelected,
   onSelect,
   onLoadMore,
   onNavigate,
@@ -57,6 +59,7 @@ export function FileGridView({
             canEdit={canEdit}
             selectable={selectable}
             selected={selectedIds?.has(file.id)}
+            anySelected={anySelected}
             onSelect={onSelect}
             onNavigate={onNavigate}
             onFileClick={onFileClick}

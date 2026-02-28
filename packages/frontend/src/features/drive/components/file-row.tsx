@@ -10,6 +10,7 @@ interface FileRowProps {
   canEdit: boolean;
   selectable?: boolean;
   selected?: boolean;
+  anySelected?: boolean;
   onSelect?: (file: DriveFile, event: React.MouseEvent) => void;
   onNavigate: (folderId: string) => void;
   onFileClick?: (file: DriveFile) => void;
@@ -24,6 +25,7 @@ export function FileRow({
   canEdit,
   selectable,
   selected,
+  anySelected,
   onSelect,
   onNavigate,
   onFileClick,
@@ -41,7 +43,7 @@ export function FileRow({
       {...(canEdit ? { ...listeners, ...attributes } : {})}
       tabIndex={0}
       className={cn(
-        "border-b hover:bg-accent/50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+        "group/row border-b hover:bg-accent/50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
         "cursor-pointer",
         isDragging && "opacity-50",
         isOver && file.isFolder && "bg-primary/10 ring-1 ring-primary",
@@ -69,23 +71,33 @@ export function FileRow({
         }
       }}
     >
-      {selectable && (
-        <td className="w-8 px-2 py-2">
-          <input
-            type="checkbox"
-            checked={!!selected}
-            onChange={() => {}}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect?.(file, e as unknown as React.MouseEvent);
-            }}
-            className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
-          />
-        </td>
-      )}
       <td className="px-3 py-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          {selectable ? (
+            <div className="relative h-4 w-4 shrink-0">
+              <Icon
+                className={cn(
+                  "absolute inset-0 h-4 w-4 text-muted-foreground transition-opacity",
+                  anySelected ? "opacity-0" : "group-hover/row:opacity-0",
+                )}
+              />
+              <input
+                type="checkbox"
+                checked={!!selected}
+                onChange={() => {}}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect?.(file, e as unknown as React.MouseEvent);
+                }}
+                className={cn(
+                  "absolute inset-0 h-4 w-4 rounded border-input accent-primary cursor-pointer transition-opacity",
+                  anySelected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100",
+                )}
+              />
+            </div>
+          ) : (
+            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          )}
           <span className="truncate text-sm">{file.name}</span>
         </div>
       </td>

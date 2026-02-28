@@ -233,6 +233,7 @@ export function DrivePage({
           canEdit={canEdit}
           selectable={canEdit}
           selectedIds={selection.selectedIds}
+          anySelected={selection.count > 0}
           allSelected={selection.allSelected(fileIds)}
           onToggleAll={handleToggleAll}
           onSelect={handleSelect}
@@ -252,6 +253,7 @@ export function DrivePage({
           canEdit={canEdit}
           selectable={canEdit}
           selectedIds={selection.selectedIds}
+          anySelected={selection.count > 0}
           onSelect={handleSelect}
           onLoadMore={handleLoadMore}
           onNavigate={handleNavigate}

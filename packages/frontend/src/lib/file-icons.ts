@@ -58,16 +58,26 @@ export function getFileIcon(mimeType: string | null, isFolder: boolean): LucideI
 
 export type PreviewType = "image" | "video" | "audio" | "pdf" | "text" | "unsupported";
 
+const TEXT_MIME_TYPES = [
+  "application/json",
+  "application/xml",
+  "text/xml",
+  "application/javascript",
+  "text/javascript",
+  "application/typescript",
+  "text/css",
+  "text/html",
+  "application/x-yaml",
+  "application/x-sh",
+];
+
 export function getPreviewType(mimeType: string | null): PreviewType {
   if (!mimeType) return "unsupported";
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("video/")) return "video";
   if (mimeType.startsWith("audio/")) return "audio";
   if (mimeType === "application/pdf") return "pdf";
-  if (
-    mimeType.startsWith("text/") ||
-    ["json", "xml", "javascript", "typescript", "css"].some((t) => mimeType.includes(t))
-  )
+  if (mimeType.startsWith("text/") || TEXT_MIME_TYPES.includes(mimeType))
     return "text";
   return "unsupported";
 }
