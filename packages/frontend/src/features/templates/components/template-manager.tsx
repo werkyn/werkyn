@@ -24,9 +24,10 @@ import { LabelPicker } from "@/components/shared/label-picker";
 import { cn } from "@/lib/utils";
 import { Plus, Trash2, Pencil, X } from "lucide-react";
 
-const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
+const PRIORITIES = ["NONE", "LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 
 const priorityStyles: Record<string, string> = {
+  NONE: "bg-gray-50 text-gray-400 dark:bg-gray-800/50 dark:text-gray-500",
   LOW: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   MEDIUM: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   HIGH: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
@@ -43,7 +44,7 @@ interface TemplateFormData {
   name: string;
   title: string;
   description: string;
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  priority: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   statusId: string;
   dueOffset: string;
   assigneeIds: string[];
@@ -55,7 +56,7 @@ const emptyForm: TemplateFormData = {
   name: "",
   title: "",
   description: "",
-  priority: "MEDIUM",
+  priority: "NONE",
   statusId: "",
   dueOffset: "",
   assigneeIds: [],

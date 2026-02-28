@@ -2,7 +2,7 @@
 CREATE TYPE "WorkspaceRole" AS ENUM ('ADMIN', 'MEMBER', 'VIEWER');
 
 -- CreateEnum
-CREATE TYPE "Priority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
+CREATE TYPE "Priority" AS ENUM ('NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -168,7 +168,7 @@ CREATE TABLE "Task" (
     "statusId" TEXT NOT NULL,
     "title" VARCHAR(255) NOT NULL,
     "description" TEXT,
-    "priority" "Priority" NOT NULL DEFAULT 'MEDIUM',
+    "priority" "Priority" NOT NULL DEFAULT 'NONE',
     "position" INTEGER NOT NULL DEFAULT 0,
     "dueDate" TEXT,
     "reminder" TEXT,

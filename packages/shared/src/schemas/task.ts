@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const PriorityEnum = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
+export const PriorityEnum = z.enum(["NONE", "LOW", "MEDIUM", "HIGH", "URGENT"]);
 
 export const ReminderEnum = z.enum([
   "on_due_date",
@@ -15,7 +15,7 @@ export const CreateTaskSchema = z.object({
     .min(1, "Title is required")
     .max(255, "Title must be 255 characters or less"),
   description: z.string().optional(),
-  priority: PriorityEnum.default("MEDIUM"),
+  priority: PriorityEnum.default("NONE"),
   statusId: z.string().optional(),
   dueDate: z
     .string()

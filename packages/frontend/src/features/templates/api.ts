@@ -11,7 +11,7 @@ export interface TaskTemplate {
   name: string;
   title: string;
   description: string | null;
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  priority: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   statusId: string | null;
   dueOffset: number | null;
   assigneeIds: string[];

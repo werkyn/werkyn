@@ -30,9 +30,17 @@ function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome back</CardTitle>
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex justify-center">
+          <img
+            src="/werkyn_logo.svg"
+            alt="Werkyn"
+            className="h-10 w-auto dark:brightness-0 dark:invert"
+          />
+        </div>
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-heading">Welcome back</CardTitle>
           <CardDescription>
             {inviteToken
               ? "Sign in to accept your workspace invite"
@@ -73,7 +81,8 @@ function LoginPage() {
             <LoginForm inviteToken={inviteToken} />
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

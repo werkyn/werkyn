@@ -19,7 +19,7 @@ CREATE TABLE "TaskTemplate" (
     "name" VARCHAR(255) NOT NULL,
     "title" VARCHAR(255) NOT NULL,
     "description" TEXT,
-    "priority" "Priority" NOT NULL DEFAULT 'MEDIUM',
+    "priority" "Priority" NOT NULL DEFAULT 'NONE',
     "statusId" TEXT,
     "dueOffset" INTEGER,
     "assigneeIds" JSONB NOT NULL DEFAULT '[]',

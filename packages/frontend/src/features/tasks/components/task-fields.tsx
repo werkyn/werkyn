@@ -22,7 +22,7 @@ import { LabelPicker } from "@/components/shared/label-picker";
 import { DatePicker } from "@/components/shared/date-picker";
 import { cn } from "@/lib/utils";
 
-const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
+const PRIORITIES = ["NONE", "LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 
 interface TaskFieldsProps {
   task: TaskDetail;

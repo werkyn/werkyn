@@ -29,12 +29,13 @@ import { useSetCustomFieldValue } from "@/features/projects/api";
 
 const columnHelper = createColumnHelper<Task>();
 
-const PRIORITIES = ["URGENT", "HIGH", "MEDIUM", "LOW"] as const;
+const PRIORITIES = ["URGENT", "HIGH", "MEDIUM", "LOW", "NONE"] as const;
 const priorityLabels: Record<string, string> = {
   URGENT: "Urgent",
   HIGH: "High",
   MEDIUM: "Medium",
   LOW: "Low",
+  NONE: "None",
 };
 
 function InlineStatusCell({
