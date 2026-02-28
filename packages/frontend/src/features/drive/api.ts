@@ -176,8 +176,8 @@ export function uploadSingleFile(
     const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
 
     const formData = new FormData();
-    formData.append("file", file);
     if (parentId) formData.append("parentId", parentId);
+    formData.append("file", file);
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${baseUrl}/workspaces/${wid}/files/upload`);
