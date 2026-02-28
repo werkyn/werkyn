@@ -57,7 +57,7 @@ export function useFileUpload({
       const uploadTeamFolderId = teamFolderIdRef.current;
 
       const items: UploadItem[] = fileList.map((f) => ({
-        id: crypto.randomUUID(),
+        id: Math.random().toString(36).slice(2) + Date.now().toString(36),
         name: f.name,
         size: f.size,
         status: "uploading" as const,
