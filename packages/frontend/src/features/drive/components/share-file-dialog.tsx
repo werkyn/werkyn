@@ -355,9 +355,9 @@ function LinkTab({
     );
   };
 
-  const handleCopyLink = async (linkId: string, token: string) => {
+  const handleCopyLink = (linkId: string, token: string) => {
     const url = `${window.location.origin}/share/files/${token}`;
-    await copyToClipboard(url);
+    copyToClipboard(url);
     setCopiedLinkId(linkId);
     toast.success("Link copied to clipboard");
     setTimeout(() => setCopiedLinkId(null), 2000);

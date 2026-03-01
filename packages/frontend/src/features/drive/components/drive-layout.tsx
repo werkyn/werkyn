@@ -27,7 +27,7 @@ export function DriveLayout({
         onTeamFolderClick={onTeamFolderClick}
         className="w-60 border-r shrink-0 overflow-y-auto"
       />
-      <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
+      <div className="flex flex-1 min-w-0 flex-col">
         {children}
       </div>
     </div>

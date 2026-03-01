@@ -59,8 +59,8 @@ export function SharePageDialog({
     });
   };
 
-  const handleCopyLink = async () => {
-    await copyToClipboard(shareUrl);
+  const handleCopyLink = () => {
+    copyToClipboard(shareUrl);
     setCopied(true);
     toast.success("Link copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
