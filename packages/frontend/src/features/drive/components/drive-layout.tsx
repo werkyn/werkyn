@@ -18,16 +18,16 @@ export function DriveLayout({
   children,
 }: DriveLayoutProps) {
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       <DriveSidebar
         workspaceId={workspaceId}
         activeSection={section}
         activeTeamFolderId={activeTeamFolderId}
         onSectionChange={onSectionChange}
         onTeamFolderClick={onTeamFolderClick}
-        className="w-60 border-r shrink-0"
+        className="w-60 border-r shrink-0 overflow-y-auto"
       />
-      <div className="flex flex-1 min-w-0 flex-col">
+      <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
         {children}
       </div>
     </div>

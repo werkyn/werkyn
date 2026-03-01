@@ -15,7 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, ExternalLink, Trash2 } from "lucide-react";
+import { Check, Copy, ExternalLink, Trash2 } from "lucide-react";
+import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import { toast } from "sonner";
 
 interface SharePageDialogProps {
@@ -36,6 +37,7 @@ export function SharePageDialog({
 
   const [password, setPassword] = useState("");
   const [showPasswordField, setShowPasswordField] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const share = shareData?.data;
 
@@ -43,6 +45,7 @@ export function SharePageDialog({
     if (open) {
       setPassword("");
       setShowPasswordField(false);
+      setCopied(false);
     }
   }, [open]);
 
@@ -56,9 +59,11 @@ export function SharePageDialog({
     });
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(shareUrl);
+  const handleCopyLink = async () => {
+    await copyToClipboard(shareUrl);
+    setCopied(true);
     toast.success("Link copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleToggleEnabled = () => {
@@ -153,7 +158,11 @@ export function SharePageDialog({
                 onClick={handleCopyLink}
                 title="Copy link"
               >
-                <Copy className="h-4 w-4" />
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
               </Button>
               <Button
                 size="icon"

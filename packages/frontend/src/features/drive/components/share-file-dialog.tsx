@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Calendar,
+  Check,
   Copy,
   ExternalLink,
   Link2,
@@ -30,6 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import { toast } from "sonner";
 
 interface ShareFileDialogProps {
@@ -326,14 +329,22 @@ function LinkTab({
   const deleteLink = useDeleteFileShareLink(workspaceId);
 
   const [password, setPassword] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
   const [showPasswordField, setShowPasswordField] = useState<string | null>(null);
+  const [showExpirationField, setShowExpirationField] = useState<string | null>(null);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
 
   const handleCreate = () => {
     createLink.mutate(
-      { fileIds, password: password.trim() || undefined },
+      {
+        fileIds,
+        password: password.trim() || undefined,
+        expiresAt: expiresAt ? new Date(expiresAt + "T23:59:59").toISOString() : undefined,
+      },
       {
         onSuccess: (res) => {
           setPassword("");
+          setExpiresAt("");
           if (!singleFileId) {
             setLocalLinks((prev) => [res.data, ...prev]);
           }
@@ -344,23 +355,12 @@ function LinkTab({
     );
   };
 
-  const handleCopyLink = async (token: string) => {
+  const handleCopyLink = async (linkId: string, token: string) => {
     const url = `${window.location.origin}/share/files/${token}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Link copied to clipboard");
-    } catch {
-      // Fallback for non-secure contexts or permission issues
-      const textarea = document.createElement("textarea");
-      textarea.value = url;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-      toast.success("Link copied to clipboard");
-    }
+    await copyToClipboard(url);
+    setCopiedLinkId(linkId);
+    toast.success("Link copied to clipboard");
+    setTimeout(() => setCopiedLinkId(null), 2000);
   };
 
   const handleToggleEnabled = (linkId: string, currentEnabled: boolean) => {
@@ -375,6 +375,19 @@ function LinkTab({
           setPassword("");
           setShowPasswordField(null);
           toast.success(password.trim() ? "Password set" : "Password removed");
+        },
+      },
+    );
+  };
+
+  const handleSetExpiration = (linkId: string) => {
+    updateLink.mutate(
+      { linkId, expiresAt: expiresAt ? new Date(expiresAt + "T23:59:59").toISOString() : null },
+      {
+        onSuccess: () => {
+          setExpiresAt("");
+          setShowExpirationField(null);
+          toast.success(expiresAt ? "Expiration set" : "Expiration removed");
         },
       },
     );
@@ -417,6 +430,16 @@ function LinkTab({
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="link-expiration">Expiration date (optional)</Label>
+            <Input
+              id="link-expiration"
+              type="date"
+              value={expiresAt}
+              min={new Date().toISOString().split("T")[0]}
+              onChange={(e) => setExpiresAt(e.target.value)}
+            />
+          </div>
           <Button
             onClick={handleCreate}
             disabled={createLink.isPending}
@@ -442,10 +465,14 @@ function LinkTab({
                   <Button
                     size="icon"
                     variant="outline"
-                    onClick={() => handleCopyLink(link.token)}
+                    onClick={() => handleCopyLink(link.id, link.token)}
                     title="Copy link"
                   >
-                    <Copy className="h-4 w-4" />
+                    {copiedLinkId === link.id ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                   </Button>
                   <Button
                     size="icon"
@@ -507,12 +534,45 @@ function LinkTab({
                   )}
                 </div>
 
-                {/* Expiration info */}
-                {link.expiresAt && (
-                  <div className="text-xs text-muted-foreground">
-                    Expires: {new Date(link.expiresAt).toLocaleDateString()}
+                {/* Expiration */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5" />
+                        Expires {link.expiresAt ? new Date(link.expiresAt).toLocaleDateString() : "(never)"}
+                      </span>
+                    </Label>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setShowExpirationField(
+                          showExpirationField === link.id ? null : link.id,
+                        )
+                      }
+                    >
+                      {showExpirationField === link.id ? "Cancel" : "Change"}
+                    </Button>
                   </div>
-                )}
+                  {showExpirationField === link.id && (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="date"
+                        min={new Date().toISOString().split("T")[0]}
+                        value={expiresAt}
+                        onChange={(e) => setExpiresAt(e.target.value)}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleSetExpiration(link.id)}
+                        disabled={updateLink.isPending}
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  )}
+                </div>
 
                 {/* Delete */}
                 <div className="border-t pt-2">
