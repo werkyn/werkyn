@@ -172,11 +172,17 @@ function PreviewContent({
   if (previewType === "pdf") {
     if (!blobUrl) return <PreviewLoading />;
     return (
-      <iframe
-        src={blobUrl}
+      <object
+        data={`${blobUrl}#toolbar=1`}
+        type="application/pdf"
         title={file.name}
         className="h-[60vh] w-full rounded-md border"
-      />
+      >
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <p className="text-sm">Unable to display PDF</p>
+          <p className="text-xs mt-1">Click Download to view this file</p>
+        </div>
+      </object>
     );
   }
 
