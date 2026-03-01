@@ -552,6 +552,208 @@ export function useAddTeamFolderMember(wid: string, tfid: string) {
   });
 }
 
+// ── File Share Types ──
+
+export interface FileShareMember {
+  id: string;
+  sharedWith: { id: string; displayName: string; avatarUrl: string | null; email: string };
+  sharedBy: { id: string; displayName: string; avatarUrl: string | null };
+  createdAt: string;
+}
+
+export interface FileShareLinkDetail {
+  id: string;
+  token: string;
+  passwordHash: string | null;
+  expiresAt: string | null;
+  enabled: boolean;
+  files: { file: { id: string; name: string; mimeType: string | null; size: number | null } }[];
+  createdBy: { id: string; displayName: string; avatarUrl: string | null };
+  createdAt: string;
+}
+
+interface SharedFileEntry {
+  id: string;
+  file: DriveFile;
+  sharedBy?: { id: string; displayName: string; avatarUrl: string | null };
+  sharedWith?: { id: string; displayName: string; avatarUrl: string | null; email: string };
+  createdAt: string;
+}
+
+interface PublicShareData {
+  files: { file: { id: string; name: string; mimeType: string | null; size: number | null } }[];
+  createdBy: { id: string; displayName: string; avatarUrl: string | null };
+  hasPassword: boolean;
+  createdAt: string;
+}
+
+// ── File Share Queries ──
+
+export function useFileShares(wid: string, fileId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.fileShares(wid, fileId!),
+    queryFn: () =>
+      api
+        .get(`workspaces/${wid}/files/${fileId}/shares`)
+        .json<{ data: FileShareMember[] }>(),
+    enabled: !!fileId,
+  });
+}
+
+export function useFileShareLinks(wid: string, fileId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.fileShareLinks(wid, fileId!),
+    queryFn: () =>
+      api
+        .get(`workspaces/${wid}/files/${fileId}/share-links`)
+        .json<{ data: FileShareLinkDetail[] }>(),
+    enabled: !!fileId,
+  });
+}
+
+export function useFileShareStatus(wid: string, fileIds: string[]) {
+  return useQuery({
+    queryKey: queryKeys.fileShareStatus(wid, fileIds),
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.set("fileIds", fileIds.join(","));
+      return api
+        .get(`workspaces/${wid}/files/share-status?${params.toString()}`)
+        .json<{ data: string[] }>();
+    },
+    enabled: fileIds.length > 0,
+  });
+}
+
+export function useSharedWithMe(wid: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.sharedWithMe(wid),
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const params = new URLSearchParams();
+      params.set("limit", "50");
+      if (pageParam) params.set("cursor", pageParam);
+      return api
+        .get(`workspaces/${wid}/files/shared-with-me?${params.toString()}`)
+        .json<{ data: SharedFileEntry[]; nextCursor: string | null }>();
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+}
+
+export function useSharedByMe(wid: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.sharedByMe(wid),
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const params = new URLSearchParams();
+      params.set("limit", "50");
+      if (pageParam) params.set("cursor", pageParam);
+      return api
+        .get(`workspaces/${wid}/files/shared-by-me?${params.toString()}`)
+        .json<{ data: SharedFileEntry[]; nextCursor: string | null }>();
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+}
+
+// ── File Share Mutations ──
+
+export function useCreateFileShares(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { fileIds: string[]; userIds: string[] }) =>
+      api
+        .post(`workspaces/${wid}/files/shares`, { json: input })
+        .json<{ data: { count: number } }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["file-shares"] });
+      qc.invalidateQueries({ queryKey: ["file-share-status"] });
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useRemoveFileShare(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fileId, userId }: { fileId: string; userId: string }) =>
+      api.delete(`workspaces/${wid}/files/${fileId}/shares/${userId}`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["file-shares"] });
+      qc.invalidateQueries({ queryKey: ["file-share-status"] });
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useCreateFileShareLink(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { fileIds: string[]; password?: string; expiresAt?: string }) =>
+      api
+        .post(`workspaces/${wid}/files/share-links`, { json: input })
+        .json<{ data: FileShareLinkDetail }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["file-share-links"] });
+      qc.invalidateQueries({ queryKey: ["file-share-status"] });
+    },
+  });
+}
+
+export function useUpdateFileShareLink(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      linkId,
+      ...input
+    }: {
+      linkId: string;
+      enabled?: boolean;
+      password?: string | null;
+      expiresAt?: string | null;
+    }) =>
+      api
+        .patch(`workspaces/${wid}/file-share-links/${linkId}`, { json: input })
+        .json<{ data: FileShareLinkDetail }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["file-share-links"] });
+    },
+  });
+}
+
+export function useDeleteFileShareLink(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (linkId: string) =>
+      api.delete(`workspaces/${wid}/file-share-links/${linkId}`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["file-share-links"] });
+      qc.invalidateQueries({ queryKey: ["file-share-status"] });
+    },
+  });
+}
+
+export function usePublicFileShare(token: string) {
+  return useQuery({
+    queryKey: ["public-file-share", token],
+    queryFn: () =>
+      api
+        .get(`public/files/${token}`)
+        .json<{ data: PublicShareData }>(),
+    enabled: !!token,
+  });
+}
+
+export function useValidateFileShare() {
+  return useMutation({
+    mutationFn: ({ token, password }: { token: string; password: string }) =>
+      api
+        .post(`public/files/${token}/validate`, { json: { password } })
+        .json<{ data: { valid: boolean } }>(),
+  });
+}
+
 export function useRemoveTeamFolderMember(wid: string, tfid: string) {
   const qc = useQueryClient();
   return useMutation({

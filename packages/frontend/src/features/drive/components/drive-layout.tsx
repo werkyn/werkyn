@@ -1,0 +1,32 @@
+import { DriveSidebar, type DriveSection } from "./drive-sidebar";
+
+interface DriveLayoutProps {
+  workspaceId: string;
+  section: DriveSection;
+  onSectionChange: (section: DriveSection) => void;
+  onTeamFolderClick: (folderId: string, teamFolderId: string) => void;
+  children: React.ReactNode;
+}
+
+export function DriveLayout({
+  workspaceId,
+  section,
+  onSectionChange,
+  onTeamFolderClick,
+  children,
+}: DriveLayoutProps) {
+  return (
+    <div className="flex h-full">
+      <DriveSidebar
+        workspaceId={workspaceId}
+        activeSection={section}
+        onSectionChange={onSectionChange}
+        onTeamFolderClick={onTeamFolderClick}
+        className="w-60 border-r shrink-0"
+      />
+      <div className="flex flex-1 min-w-0 flex-col">
+        {children}
+      </div>
+    </div>
+  );
+}

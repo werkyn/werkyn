@@ -5,7 +5,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Download, Pencil, FolderInput, Copy, Star, Trash2, RotateCcw, XCircle } from "lucide-react";
+import { MoreHorizontal, Download, Pencil, FolderInput, Copy, Star, Share2, Trash2, RotateCcw, XCircle } from "lucide-react";
 import type { DriveFile } from "../api";
 
 interface FileMenuItemsProps {
@@ -13,6 +13,7 @@ interface FileMenuItemsProps {
   isTrash?: boolean;
   ItemComponent: React.ComponentType<{ onClick?: () => void; className?: string; children: React.ReactNode }>;
   SeparatorComponent?: React.ComponentType<{ className?: string }>;
+  onShare?: () => void;
   onDownload?: () => void;
   onRename?: () => void;
   onMove?: () => void;
@@ -28,6 +29,7 @@ export function FileMenuItems({
   isTrash,
   ItemComponent,
   SeparatorComponent,
+  onShare,
   onDownload,
   onRename,
   onMove,
@@ -57,6 +59,12 @@ export function FileMenuItems({
 
   return (
     <>
+      {onShare && (
+        <ItemComponent onClick={onShare}>
+          <Share2 className="mr-2 h-4 w-4" />
+          Share
+        </ItemComponent>
+      )}
       {!file.isFolder && onDownload && (
         <ItemComponent onClick={onDownload}>
           <Download className="mr-2 h-4 w-4" />
@@ -106,6 +114,7 @@ export function FileMenuItems({
 interface FileActionMenuProps {
   file: DriveFile;
   isTrash?: boolean;
+  onShare?: () => void;
   onDownload?: () => void;
   onRename?: () => void;
   onMove?: () => void;
@@ -119,6 +128,7 @@ interface FileActionMenuProps {
 export function FileActionMenu({
   file,
   isTrash,
+  onShare,
   onDownload,
   onRename,
   onMove,
@@ -144,6 +154,7 @@ export function FileActionMenu({
           isTrash={isTrash}
           ItemComponent={DropdownMenuItem}
           SeparatorComponent={DropdownMenuSeparator}
+          onShare={onShare}
           onDownload={onDownload}
           onRename={onRename}
           onMove={onMove}

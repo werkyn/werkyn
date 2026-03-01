@@ -3,7 +3,7 @@ import type { DriveFile } from "../api";
 import { useDownloadFile, useTrashFile } from "../api";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { X, FolderInput, Download, Trash2 } from "lucide-react";
+import { X, FolderInput, Download, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface DriveBulkActionsProps {
@@ -11,6 +11,7 @@ interface DriveBulkActionsProps {
   selectedFiles: DriveFile[];
   onClear: () => void;
   onMoveSelected: () => void;
+  onShareSelected?: () => void;
   parentId?: string | null;
   teamFolderId?: string;
 }
@@ -20,6 +21,7 @@ export function DriveBulkActions({
   selectedFiles,
   onClear,
   onMoveSelected,
+  onShareSelected,
   parentId,
   teamFolderId,
 }: DriveBulkActionsProps) {
@@ -73,6 +75,13 @@ export function DriveBulkActions({
         <span className="text-sm font-medium">
           {count} selected
         </span>
+
+        {onShareSelected && (
+          <Button variant="outline" size="sm" onClick={onShareSelected}>
+            <Share2 className="h-4 w-4 mr-1" />
+            Share
+          </Button>
+        )}
 
         <Button variant="outline" size="sm" onClick={onMoveSelected}>
           <FolderInput className="h-4 w-4 mr-1" />

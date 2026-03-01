@@ -10,7 +10,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Star } from "lucide-react";
+import { Share2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FileRowProps {
@@ -28,6 +28,8 @@ interface FileRowProps {
   onTrash: (file: DriveFile) => void;
   onCopy?: (file: DriveFile) => void;
   onStar?: (file: DriveFile) => void;
+  onShare?: (file: DriveFile) => void;
+  isShared?: boolean;
 }
 
 export function FileRow({
@@ -45,6 +47,8 @@ export function FileRow({
   onTrash,
   onCopy,
   onStar,
+  onShare,
+  isShared,
 }: FileRowProps) {
   const Icon = getFileIcon(file.mimeType, file.isFolder);
   const { attributes, listeners, setNodeRef, isDragging, isOver } = useFileDragDrop(file, canEdit);
@@ -111,6 +115,9 @@ export function FileRow({
             <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
           )}
           <span className="truncate text-sm">{file.name}</span>
+          {isShared && (
+            <Share2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          )}
           {onStar && (
             <button
               onClick={(e) => {
@@ -143,6 +150,7 @@ export function FileRow({
         {canEdit && (
           <FileActionMenu
             file={file}
+            onShare={onShare ? () => onShare(file) : undefined}
             onDownload={() => onDownload(file)}
             onRename={() => onRename(file)}
             onMove={() => onMove(file)}
@@ -165,6 +173,7 @@ export function FileRow({
           file={file}
           ItemComponent={ContextMenuItem}
           SeparatorComponent={ContextMenuSeparator}
+          onShare={onShare ? () => onShare(file) : undefined}
           onDownload={() => onDownload(file)}
           onRename={() => onRename(file)}
           onMove={() => onMove(file)}

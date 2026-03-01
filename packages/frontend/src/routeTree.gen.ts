@@ -21,6 +21,7 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as AuthedWorkspaceSlugRouteImport } from './routes/_authed/$workspaceSlug'
 import { Route as AuthedWorkspaceSlugIndexRouteImport } from './routes/_authed/$workspaceSlug/index'
+import { Route as ShareFilesTokenRouteImport } from './routes/share.files.$token'
 import { Route as AuthOidcCompleteRouteImport } from './routes/auth.oidc.complete'
 import { Route as AuthedWorkspaceSlugTimeRouteImport } from './routes/_authed/$workspaceSlug/time'
 import { Route as AuthedWorkspaceSlugSettingsRouteImport } from './routes/_authed/$workspaceSlug/settings'
@@ -98,6 +99,11 @@ const AuthedWorkspaceSlugIndexRoute =
     path: '/',
     getParentRoute: () => AuthedWorkspaceSlugRoute,
   } as any)
+const ShareFilesTokenRoute = ShareFilesTokenRouteImport.update({
+  id: '/share/files/$token',
+  path: '/share/files/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthOidcCompleteRoute = AuthOidcCompleteRouteImport.update({
   id: '/auth/oidc/complete',
   path: '/auth/oidc/complete',
@@ -211,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/$workspaceSlug/settings': typeof AuthedWorkspaceSlugSettingsRoute
   '/$workspaceSlug/time': typeof AuthedWorkspaceSlugTimeRouteWithChildren
   '/auth/oidc/complete': typeof AuthOidcCompleteRoute
+  '/share/files/$token': typeof ShareFilesTokenRoute
   '/$workspaceSlug/': typeof AuthedWorkspaceSlugIndexRoute
   '/$workspaceSlug/projects/$projectId': typeof AuthedWorkspaceSlugProjectsProjectIdRouteWithChildren
   '/$workspaceSlug/time/reports': typeof AuthedWorkspaceSlugTimeReportsRoute
@@ -238,6 +245,7 @@ export interface FileRoutesByTo {
   '/$workspaceSlug/my-tasks': typeof AuthedWorkspaceSlugMyTasksRoute
   '/$workspaceSlug/settings': typeof AuthedWorkspaceSlugSettingsRoute
   '/auth/oidc/complete': typeof AuthOidcCompleteRoute
+  '/share/files/$token': typeof ShareFilesTokenRoute
   '/$workspaceSlug': typeof AuthedWorkspaceSlugIndexRoute
   '/$workspaceSlug/projects/$projectId': typeof AuthedWorkspaceSlugProjectsProjectIdRouteWithChildren
   '/$workspaceSlug/time/reports': typeof AuthedWorkspaceSlugTimeReportsRoute
@@ -269,6 +277,7 @@ export interface FileRoutesById {
   '/_authed/$workspaceSlug/settings': typeof AuthedWorkspaceSlugSettingsRoute
   '/_authed/$workspaceSlug/time': typeof AuthedWorkspaceSlugTimeRouteWithChildren
   '/auth/oidc/complete': typeof AuthOidcCompleteRoute
+  '/share/files/$token': typeof ShareFilesTokenRoute
   '/_authed/$workspaceSlug/': typeof AuthedWorkspaceSlugIndexRoute
   '/_authed/$workspaceSlug/projects/$projectId': typeof AuthedWorkspaceSlugProjectsProjectIdRouteWithChildren
   '/_authed/$workspaceSlug/time/reports': typeof AuthedWorkspaceSlugTimeReportsRoute
@@ -300,6 +309,7 @@ export interface FileRouteTypes {
     | '/$workspaceSlug/settings'
     | '/$workspaceSlug/time'
     | '/auth/oidc/complete'
+    | '/share/files/$token'
     | '/$workspaceSlug/'
     | '/$workspaceSlug/projects/$projectId'
     | '/$workspaceSlug/time/reports'
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/$workspaceSlug/my-tasks'
     | '/$workspaceSlug/settings'
     | '/auth/oidc/complete'
+    | '/share/files/$token'
     | '/$workspaceSlug'
     | '/$workspaceSlug/projects/$projectId'
     | '/$workspaceSlug/time/reports'
@@ -357,6 +368,7 @@ export interface FileRouteTypes {
     | '/_authed/$workspaceSlug/settings'
     | '/_authed/$workspaceSlug/time'
     | '/auth/oidc/complete'
+    | '/share/files/$token'
     | '/_authed/$workspaceSlug/'
     | '/_authed/$workspaceSlug/projects/$projectId'
     | '/_authed/$workspaceSlug/time/reports'
@@ -379,6 +391,7 @@ export interface RootRouteChildren {
   ShareTokenRoute: typeof ShareTokenRoute
   VerifyEmailTokenRoute: typeof VerifyEmailTokenRoute
   AuthOidcCompleteRoute: typeof AuthOidcCompleteRoute
+  ShareFilesTokenRoute: typeof ShareFilesTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -466,6 +479,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$workspaceSlug/'
       preLoaderRoute: typeof AuthedWorkspaceSlugIndexRouteImport
       parentRoute: typeof AuthedWorkspaceSlugRoute
+    }
+    '/share/files/$token': {
+      id: '/share/files/$token'
+      path: '/share/files/$token'
+      fullPath: '/share/files/$token'
+      preLoaderRoute: typeof ShareFilesTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/auth/oidc/complete': {
       id: '/auth/oidc/complete'
@@ -676,6 +696,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShareTokenRoute: ShareTokenRoute,
   VerifyEmailTokenRoute: VerifyEmailTokenRoute,
   AuthOidcCompleteRoute: AuthOidcCompleteRoute,
+  ShareFilesTokenRoute: ShareFilesTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

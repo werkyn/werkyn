@@ -35,6 +35,7 @@ import customFieldsRoutes from "./modules/custom-fields/custom-fields.routes.js"
 import templatesRoutes from "./modules/templates/templates.routes.js";
 import recurringRoutes from "./modules/recurring/recurring.routes.js";
 import filesRoutes from "./modules/files/files.routes.js";
+import fileSharesRoutes from "./modules/files/file-shares.routes.js";
 import teamFoldersRoutes from "./modules/team-folders/team-folders.routes.js";
 import attachmentsRoutes from "./modules/attachments/attachments.routes.js";
 import groupsRoutes from "./modules/groups/groups.routes.js";
@@ -88,6 +89,7 @@ export async function buildApp() {
   await app.register(templatesRoutes, { prefix: "/api/projects" });
   await app.register(recurringRoutes, { prefix: "/api/projects" });
   await app.register(filesRoutes, { prefix: "/api" });
+  await app.register(fileSharesRoutes, { prefix: "/api" });
   await app.register(teamFoldersRoutes, { prefix: "/api" });
   await app.register(attachmentsRoutes, { prefix: "/api" });
   await app.register(groupsRoutes, { prefix: "/api" });

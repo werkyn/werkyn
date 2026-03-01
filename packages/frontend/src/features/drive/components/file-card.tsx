@@ -9,7 +9,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Star } from "lucide-react";
+import { Share2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FileCardProps {
@@ -27,6 +27,8 @@ interface FileCardProps {
   onTrash: (file: DriveFile) => void;
   onCopy?: (file: DriveFile) => void;
   onStar?: (file: DriveFile) => void;
+  onShare?: (file: DriveFile) => void;
+  isShared?: boolean;
 }
 
 export function FileCard({
@@ -44,6 +46,8 @@ export function FileCard({
   onTrash,
   onCopy,
   onStar,
+  onShare,
+  isShared,
 }: FileCardProps) {
   const Icon = getFileIcon(file.mimeType, file.isFolder);
   const { attributes, listeners, setNodeRef, isDragging, isOver } = useFileDragDrop(file, canEdit);
@@ -76,6 +80,7 @@ export function FileCard({
         <div className="absolute right-1 top-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
           <FileActionMenu
             file={file}
+            onShare={onShare ? () => onShare(file) : undefined}
             onDownload={() => onDownload(file)}
             onRename={() => onRename(file)}
             onMove={() => onMove(file)}
@@ -129,9 +134,14 @@ export function FileCard({
         )}
       </div>
 
-      <span className="text-sm truncate w-full text-center" title={file.name}>
-        {file.name}
-      </span>
+      <div className="flex items-center justify-center gap-1 w-full">
+        <span className="text-sm truncate text-center" title={file.name}>
+          {file.name}
+        </span>
+        {isShared && (
+          <Share2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+        )}
+      </div>
 
       {!file.isFolder && (
         <span className="text-xs text-muted-foreground mt-0.5">
@@ -151,6 +161,7 @@ export function FileCard({
           file={file}
           ItemComponent={ContextMenuItem}
           SeparatorComponent={ContextMenuSeparator}
+          onShare={onShare ? () => onShare(file) : undefined}
           onDownload={() => onDownload(file)}
           onRename={() => onRename(file)}
           onMove={() => onMove(file)}

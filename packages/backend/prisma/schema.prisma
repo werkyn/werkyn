@@ -53,6 +53,9 @@ model User {
   chatMessages            ChatMessage[]
   chatReactions           ChatReaction[]
   starredFiles            StarredFile[]
+  fileSharesCreated       FileShare[]       @relation("FileSharesCreated")
+  fileSharesReceived      FileShare[]       @relation("FileSharesReceived")
+  fileShareLinksCreated   FileShareLink[]   @relation("FileShareLinksCreated")
 }
 
 model RefreshToken {
@@ -198,7 +201,9 @@ model Workspace {
   wikiSpaces   WikiSpace[]
   timeEntries  TimeEntry[]
   userRates    UserRate[]
-  chatChannels ChatChannel[]
+  chatChannels   ChatChannel[]
+  fileShares     FileShare[]
+  fileShareLinks FileShareLink[]
 }
 
 enum WorkspaceRole {
@@ -628,8 +633,10 @@ model File {
   owner       User?       @relation("OwnedFiles", fields: [ownerId], references: [id], onDelete: SetNull)
   teamFolder  TeamFolder? @relation("TeamFolderFiles", fields: [teamFolderId], references: [id], onDelete: SetNull)
   asTeamFolder TeamFolder? @relation("TeamFolderRoot")
-  attachments  Attachment[]
-  starredBy    StarredFile[]
+  attachments    Attachment[]
+  starredBy      StarredFile[]
+  shares         FileShare[]
+  shareLinkFiles FileShareLinkFile[]
 
   @@index([workspaceId, parentId])
   @@index([workspaceId, trashedAt])
@@ -649,6 +656,61 @@ model StarredFile {
 
   @@unique([userId, fileId])
   @@index([userId])
+}
+
+// ─── File Sharing ─────────────────────────────────────
+
+model FileShare {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  fileId       String
+  sharedById   String
+  sharedWithId String
+  createdAt    DateTime @default(now())
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  file       File      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  sharedBy   User      @relation("FileSharesCreated", fields: [sharedById], references: [id], onDelete: Cascade)
+  sharedWith User      @relation("FileSharesReceived", fields: [sharedWithId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, sharedWithId])
+  @@index([workspaceId])
+  @@index([sharedById])
+  @@index([sharedWithId])
+  @@index([fileId])
+}
+
+model FileShareLink {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  token        String    @unique
+  passwordHash String?
+  expiresAt    DateTime?
+  enabled      Boolean   @default(true)
+  createdById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User               @relation("FileShareLinksCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  files     FileShareLinkFile[]
+
+  @@index([token])
+  @@index([workspaceId])
+  @@index([createdById])
+}
+
+model FileShareLinkFile {
+  id          String @id @default(cuid())
+  shareLinkId String
+  fileId      String
+
+  shareLink FileShareLink @relation(fields: [shareLinkId], references: [id], onDelete: Cascade)
+  file      File          @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([shareLinkId, fileId])
+  @@index([fileId])
+  @@index([shareLinkId])
 }
 
 // ─── Attachments ───────────────────────────────────────

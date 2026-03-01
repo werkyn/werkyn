@@ -67,4 +67,14 @@ export const queryKeys = {
   chatThread: (messageId: string) => ["chat-thread", { messageId }] as const,
   chatUnread: (wid: string) => ["chat-unread", { wid }] as const,
   chatMembers: (channelId: string) => ["chat-members", { channelId }] as const,
+  fileShares: (wid: string, fid: string) =>
+    ["file-shares", { wid, fid }] as const,
+  fileShareLinks: (wid: string, fid: string) =>
+    ["file-share-links", { wid, fid }] as const,
+  fileShareStatus: (wid: string, fileIds: string[]) =>
+    ["file-share-status", { wid, key: [...fileIds].sort().join(",") }] as const,
+  sharedWithMe: (wid: string) =>
+    ["files", { wid, sharedWithMe: true }] as const,
+  sharedByMe: (wid: string) =>
+    ["files", { wid, sharedByMe: true }] as const,
 };

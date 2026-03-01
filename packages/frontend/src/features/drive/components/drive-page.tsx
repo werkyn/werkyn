@@ -16,6 +16,7 @@ import {
   useTeamFolders,
   useStarFile,
   useUnstarFile,
+  useFileShareStatus,
   type DriveFile,
   type SortBy,
   type SortOrder,
@@ -40,6 +41,7 @@ import { UploadProgress } from "./upload-progress";
 import { TeamFoldersSection } from "./team-folders-section";
 import { StarredSection } from "./starred-section";
 import { RecentFilesSection } from "./recent-files-section";
+import { ShareFileDialog } from "./share-file-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { SearchInput } from "@/components/shared/search-input";
 import { Button } from "@/components/ui/button";
@@ -61,6 +63,7 @@ interface DrivePageProps {
   teamFolderId?: string;
   view: "list" | "grid";
   trash: boolean;
+  section?: "home" | "drive" | "starred" | "recent";
   onNavigate: (folderId?: string, teamFolderId?: string) => void;
   onViewChange: (view: "list" | "grid") => void;
   onTrashToggle: (trash: boolean) => void;
@@ -73,6 +76,7 @@ export function DrivePage({
   teamFolderId,
   view,
   trash,
+  section = "home",
   onNavigate,
   onViewChange,
   onTrashToggle,
@@ -100,6 +104,7 @@ export function DrivePage({
 
   // Determine if we're at root level (no folderId AND no teamFolderId)
   const isRoot = !folderId && !teamFolderId;
+  const showInlineSections = isRoot && !isSearching && section === "home";
 
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage, isLoading, isError, refetch } =
     useFiles(
@@ -137,6 +142,7 @@ export function DrivePage({
   const [moveFileDialog, setMoveFileDialog] = useState<DriveFile | null>(null);
   const [moveFileIds, setMoveFileIds] = useState<string[]>([]);
   const [copyFileDialog, setCopyFileDialog] = useState<DriveFile | null>(null);
+  const [shareTarget, setShareTarget] = useState<{ fileIds: string[]; fileName: string } | null>(null);
   const [previewFile, setPreviewFile] = useState<DriveFile | null>(null);
   const [activeDrag, setActiveDrag] = useState<DriveFile | null>(null);
   const [showTrashConfirm, setShowTrashConfirm] = useState(false);
@@ -239,6 +245,20 @@ export function DrivePage({
   );
 
   const fileIds = useMemo(() => files.map((f) => f.id), [files]);
+
+  // Share status for indicators
+  const { data: shareStatusData } = useFileShareStatus(workspaceId, fileIds);
+  const sharedFileIds = useMemo(
+    () => new Set(shareStatusData?.data ?? []),
+    [shareStatusData],
+  );
+
+  const handleShare = useCallback(
+    (file: DriveFile) => {
+      setShareTarget({ fileIds: [file.id], fileName: file.name });
+    },
+    [],
+  );
 
   const handleSelect = useCallback(
     (file: DriveFile, event: React.MouseEvent) => {
@@ -359,6 +379,8 @@ export function DrivePage({
           onTrash={handleTrash}
           onCopy={canEdit ? setCopyFileDialog : undefined}
           onStar={handleStar}
+          onShare={canEdit ? handleShare : undefined}
+          sharedFileIds={sharedFileIds}
           sortBy={sortBy}
           sortOrder={sortOrder}
           onSort={handleSort}
@@ -382,6 +404,8 @@ export function DrivePage({
           onTrash={handleTrash}
           onCopy={canEdit ? setCopyFileDialog : undefined}
           onStar={handleStar}
+          onShare={canEdit ? handleShare : undefined}
+          sharedFileIds={sharedFileIds}
           sortBy={sortBy}
           sortOrder={sortOrder}
           onSort={handleSort}
@@ -511,8 +535,8 @@ export function DrivePage({
           disabled={!canEdit}
         >
           <div className="flex-1 overflow-y-auto">
-            {/* Starred section — only at root, hidden during search */}
-            {isRoot && !isSearching && (
+            {/* Starred section — home or starred view */}
+            {(showInlineSections || (section === "starred" && isRoot && !isSearching)) && (
               <StarredSection
                 workspaceId={workspaceId}
                 onNavigate={onNavigate}
@@ -520,8 +544,8 @@ export function DrivePage({
               />
             )}
 
-            {/* Recent files section — only at root, hidden during search */}
-            {isRoot && !isSearching && (
+            {/* Recent files section — home or recent view */}
+            {(showInlineSections || (section === "recent" && isRoot && !isSearching)) && (
               <RecentFilesSection
                 recents={recents}
                 onNavigate={onNavigate}
@@ -529,8 +553,8 @@ export function DrivePage({
               />
             )}
 
-            {/* Team folders section — only at root, hidden during search */}
-            {isRoot && !isSearching && (
+            {/* Team folders section — home only */}
+            {showInlineSections && (
               <TeamFoldersSection
                 workspaceId={workspaceId}
                 isAdmin={isAdmin}
@@ -538,8 +562,8 @@ export function DrivePage({
               />
             )}
 
-            {/* Personal files header at root, hidden during search */}
-            {isRoot && !isSearching && (
+            {/* Personal files header at root, home view only */}
+            {showInlineSections && (
               <div className="px-4 pt-3 pb-1">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
                   My Files
@@ -599,6 +623,16 @@ export function DrivePage({
         workspaceId={workspaceId}
       />
 
+      {shareTarget && (
+        <ShareFileDialog
+          open
+          onClose={() => setShareTarget(null)}
+          workspaceId={workspaceId}
+          fileIds={shareTarget.fileIds}
+          fileName={shareTarget.fileName}
+        />
+      )}
+
       <MoveDialog
         file={copyFileDialog}
         onClose={() => setCopyFileDialog(null)}
@@ -630,6 +664,13 @@ export function DrivePage({
           selectedFiles={selectedFiles}
           onClear={selection.clear}
           onMoveSelected={handleMoveSelected}
+          onShareSelected={() => {
+            const ids = Array.from(selection.selectedIds);
+            setShareTarget({
+              fileIds: ids,
+              fileName: `${ids.length} files`,
+            });
+          }}
           parentId={folderId ?? null}
           teamFolderId={teamFolderId}
         />
