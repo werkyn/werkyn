@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { DriveFile } from "../api";
 import { useFilePreviewUrl, useFileTextContent } from "../api";
 import { getPreviewType, getFileIcon, formatFileSize } from "@/lib/file-icons";
+import { useAuthStore } from "@/stores/auth-store";
 import { X, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { timeAgo } from "@/lib/time-ago";
@@ -21,7 +22,8 @@ export function FilePreviewSlideover({
   onDownload,
 }: FilePreviewSlideoverProps) {
   const previewType = getPreviewType(file.mimeType);
-  const needsBlobUrl = previewType === "image" || previewType === "video" || previewType === "audio" || previewType === "pdf";
+  const isPdf = previewType === "pdf";
+  const needsBlobUrl = !isPdf && (previewType === "image" || previewType === "video" || previewType === "audio");
   const needsText = previewType === "text";
 
   const { data: blobUrl } = useFilePreviewUrl(
@@ -33,6 +35,16 @@ export function FilePreviewSlideover({
     workspaceId,
     needsText ? file.id : null,
   );
+
+  // Direct URL for PDF — lets the browser's native PDF viewer handle it
+  const pdfUrl = useMemo(() => {
+    if (!isPdf) return undefined;
+    const token = useAuthStore.getState().accessToken;
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+    const params = new URLSearchParams({ inline: "true" });
+    if (token) params.set("token", token);
+    return `${baseUrl}/workspaces/${workspaceId}/files/${file.id}/download?${params.toString()}`;
+  }, [isPdf, workspaceId, file.id]);
 
   // Revoke blob URL on cleanup
   useEffect(() => {
@@ -99,6 +111,7 @@ export function FilePreviewSlideover({
           <PreviewContent
             previewType={previewType}
             blobUrl={blobUrl}
+            pdfUrl={pdfUrl}
             textContent={textContent}
             file={file}
             Icon={Icon}
@@ -124,12 +137,14 @@ export function FilePreviewSlideover({
 function PreviewContent({
   previewType,
   blobUrl,
+  pdfUrl,
   textContent,
   file,
   Icon,
 }: {
   previewType: string;
   blobUrl: string | undefined;
+  pdfUrl: string | undefined;
   textContent: string | undefined;
   file: DriveFile;
   Icon: React.ComponentType<{ className?: string }>;
@@ -170,19 +185,13 @@ function PreviewContent({
   }
 
   if (previewType === "pdf") {
-    if (!blobUrl) return <PreviewLoading />;
+    if (!pdfUrl) return <PreviewLoading />;
     return (
-      <object
-        data={`${blobUrl}#toolbar=1`}
-        type="application/pdf"
+      <iframe
+        src={pdfUrl}
         title={file.name}
         className="h-[60vh] w-full rounded-md border"
-      >
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <p className="text-sm">Unable to display PDF</p>
-          <p className="text-xs mt-1">Click Download to view this file</p>
-        </div>
-      </object>
+      />
     );
   }
 
