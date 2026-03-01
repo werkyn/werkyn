@@ -225,6 +225,7 @@ function DriveRoute() {
     <DriveLayout
       workspaceId={workspace.id}
       section={section}
+      activeTeamFolderId={search.teamFolderId}
       onSectionChange={handleSectionChange}
       onTeamFolderClick={handleTeamFolderClick}
     >

@@ -23,6 +23,7 @@ export type DriveSection =
 interface DriveSidebarProps {
   workspaceId: string;
   activeSection: DriveSection;
+  activeTeamFolderId?: string;
   onSectionChange: (section: DriveSection) => void;
   onTeamFolderClick: (folderId: string, teamFolderId: string) => void;
   className?: string;
@@ -41,6 +42,7 @@ const NAV_ITEMS: { section: DriveSection; label: string; icon: React.ElementType
 export function DriveSidebar({
   workspaceId,
   activeSection,
+  activeTeamFolderId,
   onSectionChange,
   onTeamFolderClick,
   className,
@@ -59,7 +61,7 @@ export function DriveSidebar({
               onClick={() => onSectionChange(section)}
               className={cn(
                 "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-                activeSection === section
+                activeSection === section && !activeTeamFolderId
                   ? "bg-accent text-foreground font-medium"
                   : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
               )}
@@ -81,7 +83,12 @@ export function DriveSidebar({
               <button
                 key={tf.id}
                 onClick={() => onTeamFolderClick(tf.folderId, tf.id)}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+                  activeTeamFolderId === tf.id
+                    ? "bg-accent text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                )}
               >
                 <Folder className="h-4 w-4 shrink-0" />
                 <span className="truncate">{tf.name}</span>

@@ -314,7 +314,12 @@ function LinkTab({
     workspaceId,
     singleFileId,
   );
-  const links = linksData?.data ?? [];
+  const queryLinks = linksData?.data ?? [];
+
+  // For multi-file shares, the query is disabled (no singleFileId).
+  // Track links created in this session so they display immediately.
+  const [localLinks, setLocalLinks] = useState<typeof queryLinks>([]);
+  const links = singleFileId ? queryLinks : localLinks;
 
   const createLink = useCreateFileShareLink(workspaceId);
   const updateLink = useUpdateFileShareLink(workspaceId);
@@ -327,8 +332,11 @@ function LinkTab({
     createLink.mutate(
       { fileIds, password: password.trim() || undefined },
       {
-        onSuccess: () => {
+        onSuccess: (res) => {
           setPassword("");
+          if (!singleFileId) {
+            setLocalLinks((prev) => [res.data, ...prev]);
+          }
           toast.success("Share link created");
         },
         onError: (err) => toast.error(err.message || "Failed to create link"),
@@ -336,10 +344,23 @@ function LinkTab({
     );
   };
 
-  const handleCopyLink = (token: string) => {
+  const handleCopyLink = async (token: string) => {
     const url = `${window.location.origin}/share/files/${token}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Link copied to clipboard");
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard");
+    } catch {
+      // Fallback for non-secure contexts or permission issues
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      toast.success("Link copied to clipboard");
+    }
   };
 
   const handleToggleEnabled = (linkId: string, currentEnabled: boolean) => {
@@ -361,7 +382,12 @@ function LinkTab({
 
   const handleDelete = (linkId: string) => {
     deleteLink.mutate(linkId, {
-      onSuccess: () => toast.success("Link deleted"),
+      onSuccess: () => {
+        if (!singleFileId) {
+          setLocalLinks((prev) => prev.filter((l) => l.id !== linkId));
+        }
+        toast.success("Link deleted");
+      },
     });
   };
 

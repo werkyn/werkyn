@@ -572,11 +572,12 @@ export interface FileShareLinkDetail {
   createdAt: string;
 }
 
-interface SharedFileEntry {
+export interface SharedFileEntry {
   id: string;
   file: DriveFile;
   sharedBy?: { id: string; displayName: string; avatarUrl: string | null };
-  sharedWith?: { id: string; displayName: string; avatarUrl: string | null; email: string };
+  sharedWith?: { id: string; displayName: string; avatarUrl: string | null; email: string } | null;
+  shareType?: "member" | "link";
   createdAt: string;
 }
 
@@ -697,6 +698,7 @@ export function useCreateFileShareLink(wid: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["file-share-links"] });
       qc.invalidateQueries({ queryKey: ["file-share-status"] });
+      qc.invalidateQueries({ queryKey: queryKeys.sharedByMe(wid) });
     },
   });
 }
@@ -730,6 +732,7 @@ export function useDeleteFileShareLink(wid: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["file-share-links"] });
       qc.invalidateQueries({ queryKey: ["file-share-status"] });
+      qc.invalidateQueries({ queryKey: queryKeys.sharedByMe(wid) });
     },
   });
 }

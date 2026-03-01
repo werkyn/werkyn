@@ -3,6 +3,7 @@ import { DriveSidebar, type DriveSection } from "./drive-sidebar";
 interface DriveLayoutProps {
   workspaceId: string;
   section: DriveSection;
+  activeTeamFolderId?: string;
   onSectionChange: (section: DriveSection) => void;
   onTeamFolderClick: (folderId: string, teamFolderId: string) => void;
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface DriveLayoutProps {
 export function DriveLayout({
   workspaceId,
   section,
+  activeTeamFolderId,
   onSectionChange,
   onTeamFolderClick,
   children,
@@ -20,6 +22,7 @@ export function DriveLayout({
       <DriveSidebar
         workspaceId={workspaceId}
         activeSection={section}
+        activeTeamFolderId={activeTeamFolderId}
         onSectionChange={onSectionChange}
         onTeamFolderClick={onTeamFolderClick}
         className="w-60 border-r shrink-0"

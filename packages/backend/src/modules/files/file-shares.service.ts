@@ -127,34 +127,78 @@ export async function listSharedByMe(
   prisma: PrismaClient,
   workspaceId: string,
   userId: string,
-  cursor?: string,
-  limit = 50,
+  _cursor?: string,
+  _limit = 50,
 ) {
-  const shares = await prisma.fileShare.findMany({
-    where: { workspaceId, sharedById: userId },
-    include: {
-      file: {
-        include: {
-          uploadedBy: {
-            select: { id: true, displayName: true, avatarUrl: true },
+  // Query both member shares and public link shares in parallel
+  const [memberShares, linkShareFiles] = await Promise.all([
+    prisma.fileShare.findMany({
+      where: { workspaceId, sharedById: userId },
+      include: {
+        file: {
+          include: {
+            uploadedBy: {
+              select: { id: true, displayName: true, avatarUrl: true },
+            },
           },
         },
+        sharedWith: {
+          select: { id: true, displayName: true, avatarUrl: true, email: true },
+        },
       },
-      sharedWith: {
-        select: { id: true, displayName: true, avatarUrl: true, email: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.fileShareLinkFile.findMany({
+      where: {
+        shareLink: { workspaceId, createdById: userId },
       },
-    },
-    orderBy: { createdAt: "desc" },
-    take: limit + 1,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-  });
+      include: {
+        file: {
+          include: {
+            uploadedBy: {
+              select: { id: true, displayName: true, avatarUrl: true },
+            },
+          },
+        },
+        shareLink: {
+          select: { id: true, token: true, createdAt: true },
+        },
+      },
+    }),
+  ]);
 
-  const hasMore = shares.length > limit;
-  const data = hasMore ? shares.slice(0, limit) : shares;
+  // Normalize into a common shape
+  type Entry = {
+    id: string;
+    file: (typeof memberShares)[0]["file"];
+    sharedWith: (typeof memberShares)[0]["sharedWith"] | null;
+    shareType: "member" | "link";
+    createdAt: Date;
+  };
+
+  const entries: Entry[] = [
+    ...memberShares.map((s) => ({
+      id: s.id,
+      file: s.file,
+      sharedWith: s.sharedWith,
+      shareType: "member" as const,
+      createdAt: s.createdAt,
+    })),
+    ...linkShareFiles.map((lf) => ({
+      id: `link-${lf.id}`,
+      file: lf.file,
+      sharedWith: null,
+      shareType: "link" as const,
+      createdAt: lf.shareLink.createdAt,
+    })),
+  ];
+
+  // Sort by date descending
+  entries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   return {
-    data,
-    nextCursor: hasMore ? data[data.length - 1].id : null,
+    data: entries,
+    nextCursor: null,
   };
 }
 
