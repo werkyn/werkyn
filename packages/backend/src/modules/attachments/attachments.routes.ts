@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
 import {
-  uploadAttachmentHandler,
   listAttachmentsHandler,
   downloadAttachmentHandler,
   deleteAttachmentHandler,
@@ -12,14 +11,6 @@ import { validate, validateQuery } from "../../middleware/validate.js";
 import { AttachmentQuerySchema, LinkAttachmentSchema } from "@pm/shared";
 
 export default async function attachmentsRoutes(fastify: FastifyInstance) {
-  // POST /api/workspaces/:wid/attachments — Upload attachment (multipart)
-  fastify.route({
-    method: "POST",
-    url: "/workspaces/:wid/attachments",
-    preHandler: [authenticate, authorize("ADMIN", "MEMBER")],
-    handler: uploadAttachmentHandler,
-  });
-
   // POST /api/workspaces/:wid/attachments/link — Link a Drive file as attachment
   fastify.route({
     method: "POST",
