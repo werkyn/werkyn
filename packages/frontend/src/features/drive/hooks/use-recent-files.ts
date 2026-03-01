@@ -1,11 +1,15 @@
 import { useState, useCallback, useEffect } from "react";
 
-interface RecentFileEntry {
+export interface RecentFileEntry {
   id: string;
   name: string;
   mimeType: string | null;
   isFolder: boolean;
+  size: number | null;
   teamFolderId?: string | null;
+  uploadedById: string;
+  uploadedBy: { id: string; displayName: string; avatarUrl: string | null };
+  updatedAt: string;
   accessedAt: number;
 }
 
@@ -32,6 +36,18 @@ function writeRecents(wid: string, entries: RecentFileEntry[]) {
   }
 }
 
+interface AddRecentInput {
+  id: string;
+  name: string;
+  mimeType: string | null;
+  isFolder: boolean;
+  size: number | null;
+  teamFolderId?: string | null;
+  uploadedById: string;
+  uploadedBy: { id: string; displayName: string; avatarUrl: string | null };
+  updatedAt: string;
+}
+
 export function useRecentFiles(wid: string) {
   const [recents, setRecents] = useState<RecentFileEntry[]>(() => readRecents(wid));
 
@@ -41,14 +57,18 @@ export function useRecentFiles(wid: string) {
   }, [wid]);
 
   const addRecent = useCallback(
-    (file: { id: string; name: string; mimeType: string | null; isFolder: boolean; teamFolderId?: string | null }) => {
+    (file: AddRecentInput) => {
       setRecents((prev) => {
         const entry: RecentFileEntry = {
           id: file.id,
           name: file.name,
           mimeType: file.mimeType,
           isFolder: file.isFolder,
+          size: file.size,
           teamFolderId: file.teamFolderId,
+          uploadedById: file.uploadedById,
+          uploadedBy: file.uploadedBy,
+          updatedAt: file.updatedAt,
           accessedAt: Date.now(),
         };
         const filtered = prev.filter((r) => r.id !== file.id);

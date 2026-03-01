@@ -82,8 +82,8 @@ export function getPreviewType(mimeType: string | null): PreviewType {
   return "unsupported";
 }
 
-export function formatFileSize(bytes: number | null): string {
-  if (bytes === null) return "—";
+export function formatFileSize(bytes: number | null | undefined): string {
+  if (bytes == null) return "—";
   if (bytes === 0) return "0 B";
 
   const units = ["B", "KB", "MB", "GB"];

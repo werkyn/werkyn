@@ -525,11 +525,7 @@ export function DrivePage({
               <RecentFilesSection
                 recents={recents}
                 onNavigate={onNavigate}
-                onFileClick={(file) => {
-                  // RecentFileEntry doesn't have all DriveFile fields,
-                  // but we can still open preview with the available data
-                  setPreviewFile(file as DriveFile);
-                }}
+                onFileClick={handleFileClick}
               />
             )}
 
