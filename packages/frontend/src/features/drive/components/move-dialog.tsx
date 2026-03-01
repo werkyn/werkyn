@@ -7,37 +7,47 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useFiles, useMoveFile, type DriveFile } from "../api";
+import { useFiles, useMoveFile, useCopyFile, type DriveFile } from "../api";
 import { Folder, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface MoveDialogProps {
   file: DriveFile | null;
+  fileIds?: string[];
   onClose: () => void;
   workspaceId: string;
+  mode?: "move" | "copy";
 }
 
-export function MoveDialog({ file, onClose, workspaceId }: MoveDialogProps) {
+export function MoveDialog({ file, fileIds, onClose, workspaceId, mode = "move" }: MoveDialogProps) {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
   );
+  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const moveFile = useMoveFile(workspaceId);
+  const copyFile = useCopyFile(workspaceId);
 
-  // Reset state when a different file is opened (component is never unmounted)
+  const isCopy = mode === "copy";
+  const mutation = isCopy ? copyFile : moveFile;
+
+  const isBatch = !isCopy && fileIds && fileIds.length > 0;
+  const isOpen = isBatch ? fileIds.length > 0 : !!file;
+
+  // Reset state when dialog opens
   useEffect(() => {
-    if (file) {
+    if (file || (fileIds && fileIds.length > 0)) {
       setSelectedFolder(null);
       setExpandedFolders(new Set());
     }
-  }, [file?.id]);
+  }, [file?.id, fileIds?.length]);
 
   // Scope to same context as the file being moved
   const fileTeamFolderId = file?.teamFolderId ?? undefined;
 
   // Load root-level folders (scoped to personal or team folder)
-  const { data: rootData } = useFiles(workspaceId, null, fileTeamFolderId);
+  const { data: rootData } = useFiles(workspaceId, null, isBatch ? undefined : fileTeamFolderId);
   const rootFolders = (rootData?.pages ?? [])
     .flatMap((p) => p.data)
     .filter((f) => f.isFolder && f.id !== file?.id);
@@ -51,30 +61,61 @@ export function MoveDialog({ file, onClose, workspaceId }: MoveDialogProps) {
     });
   };
 
-  const handleMove = () => {
+  const handleAction = async () => {
+    if (isBatch && fileIds) {
+      setIsProcessingBatch(true);
+      const results = await Promise.allSettled(
+        fileIds.map(
+          (fid) =>
+            new Promise<void>((resolve, reject) => {
+              moveFile.mutate(
+                { fileId: fid, parentId: selectedFolder },
+                {
+                  onSuccess: () => resolve(),
+                  onError: (err) => reject(err),
+                },
+              );
+            }),
+        ),
+      );
+      setIsProcessingBatch(false);
+      const failed = results.filter((r) => r.status === "rejected").length;
+      if (failed === 0) {
+        toast.success(`Moved ${fileIds.length} file${fileIds.length !== 1 ? "s" : ""}`);
+      } else {
+        toast.error(`${failed} file${failed !== 1 ? "s" : ""} failed to move`);
+      }
+      onClose();
+      return;
+    }
+
     if (!file) return;
 
-    moveFile.mutate(
+    mutation.mutate(
       { fileId: file.id, parentId: selectedFolder },
       {
         onSuccess: () => {
-          toast.success("Moved successfully");
+          toast.success(isCopy ? "Copied successfully" : "Moved successfully");
           onClose();
         },
         onError: (err) => {
-          toast.error(err.message || "Failed to move");
+          toast.error(err.message || `Failed to ${isCopy ? "copy" : "move"}`);
         },
       },
     );
   };
 
-  const rootLabel = fileTeamFolderId ? "Team Folder (root)" : "My Files (root)";
+  const rootLabel = !isBatch && fileTeamFolderId ? "Team Folder (root)" : "My Files (root)";
+  const actionVerb = isCopy ? "Copy" : "Move";
+  const title = isBatch
+    ? `Move ${fileIds!.length} file${fileIds!.length !== 1 ? "s" : ""}`
+    : `${actionVerb} "${file?.name}"`;
 
   return (
-    <Dialog open={!!file} onOpenChange={(v) => !v && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(v) => !v && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Move "{file?.name}"</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         <div className="max-h-64 overflow-y-auto border rounded-md">
@@ -109,8 +150,10 @@ export function MoveDialog({ file, onClose, workspaceId }: MoveDialogProps) {
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleMove} disabled={moveFile.isPending}>
-            {moveFile.isPending ? "Moving..." : "Move here"}
+          <Button onClick={handleAction} disabled={mutation.isPending || isProcessingBatch}>
+            {mutation.isPending || isProcessingBatch
+              ? `${isCopy ? "Copying" : "Moving"}...`
+              : `${actionVerb} here`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -144,6 +187,7 @@ function FolderItem({
     workspaceId,
     folder.id,
     teamFolderId,
+    undefined,
     { enabled: isExpanded },
   );
   const childFolders = isExpanded

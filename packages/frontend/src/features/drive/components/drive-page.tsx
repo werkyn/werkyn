@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -8,8 +8,25 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { useFiles, useDownloadFile, useTrashFile, useMoveFile, useTeamFolders, type DriveFile } from "../api";
+import {
+  useFiles,
+  useDownloadFile,
+  useTrashFile,
+  useMoveFile,
+  useTeamFolders,
+  useStarFile,
+  useUnstarFile,
+  useFileShareStatus,
+  useArchiveFiles,
+  type DriveFile,
+  type SortBy,
+  type SortOrder,
+} from "../api";
+import { FilePreviewSlideover } from "./file-preview-slideover";
+import { DriveBulkActions } from "./drive-bulk-actions";
 import { useFileUpload } from "../hooks/use-file-upload";
+import { useFileSelection } from "../hooks/use-file-selection";
+import { useRecentFiles } from "../hooks/use-recent-files";
 import { useAuthStore } from "@/stores/auth-store";
 import { usePermissions } from "@/hooks/use-permissions";
 import { getFileIcon } from "@/lib/file-icons";
@@ -23,6 +40,11 @@ import { MoveDialog } from "./move-dialog";
 import { UploadDropzone } from "./upload-dropzone";
 import { UploadProgress } from "./upload-progress";
 import { TeamFoldersSection } from "./team-folders-section";
+import { StarredSection } from "./starred-section";
+import { RecentFilesSection } from "./recent-files-section";
+import { ShareFileDialog } from "./share-file-dialog";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { SearchInput } from "@/components/shared/search-input";
 import { Button } from "@/components/ui/button";
 import {
   FolderPlus,
@@ -42,6 +64,7 @@ interface DrivePageProps {
   teamFolderId?: string;
   view: "list" | "grid";
   trash: boolean;
+  section?: "home" | "drive" | "starred" | "recent";
   onNavigate: (folderId?: string, teamFolderId?: string) => void;
   onViewChange: (view: "list" | "grid") => void;
   onTrashToggle: (trash: boolean) => void;
@@ -54,6 +77,7 @@ export function DrivePage({
   teamFolderId,
   view,
   trash,
+  section = "home",
   onNavigate,
   onViewChange,
   onTrashToggle,
@@ -67,11 +91,30 @@ export function DrivePage({
   const canEdit = permissions.canEdit;
   const isAdmin = membership?.role === "ADMIN";
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const isSearching = searchQuery.length > 0;
+
+  // Sort state
+  const [sortBy, setSortBy] = useState<SortBy>("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const handleSort = useCallback((column: SortBy) => {
+    if (sortBy === column) setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    else { setSortBy(column); setSortOrder("asc"); }
+  }, [sortBy]);
+
   // Determine if we're at root level (no folderId AND no teamFolderId)
   const isRoot = !folderId && !teamFolderId;
+  const showInlineSections = isRoot && !isSearching && section === "home";
 
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage, isLoading, isError, refetch } =
-    useFiles(workspaceId, folderId ?? null, teamFolderId);
+    useFiles(
+      workspaceId,
+      isSearching ? null : (folderId ?? null),
+      isSearching ? undefined : teamFolderId,
+      isSearching ? searchQuery : undefined,
+      { sortBy, sortOrder },
+    );
   const files = useMemo(() => (data?.pages ?? []).flatMap((p) => p.data), [data]);
 
   // Fetch team folder info for breadcrumbs
@@ -81,8 +124,11 @@ export function DrivePage({
     : undefined;
 
   const downloadFile = useDownloadFile(workspaceId);
-  const trashFile = useTrashFile(workspaceId, folderId ?? null, teamFolderId);
+  const trashFile = useTrashFile(workspaceId);
   const moveFile = useMoveFile(workspaceId);
+  const starFile = useStarFile(workspaceId);
+  const unstarFile = useUnstarFile(workspaceId);
+  const archiveFiles = useArchiveFiles(workspaceId);
 
   const { uploads, handleUpload, clearUploads } = useFileUpload({
     workspaceId,
@@ -90,11 +136,21 @@ export function DrivePage({
     teamFolderId,
   });
 
+  // Recent files tracking
+  const { recents, addRecent } = useRecentFiles(workspaceId);
+
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [renameFile, setRenameFile] = useState<DriveFile | null>(null);
   const [moveFileDialog, setMoveFileDialog] = useState<DriveFile | null>(null);
+  const [moveFileIds, setMoveFileIds] = useState<string[]>([]);
+  const [copyFileDialog, setCopyFileDialog] = useState<DriveFile | null>(null);
+  const [shareTarget, setShareTarget] = useState<{ fileIds: string[]; fileName: string } | null>(null);
+  const [previewFile, setPreviewFile] = useState<DriveFile | null>(null);
   const [activeDrag, setActiveDrag] = useState<DriveFile | null>(null);
+  const [showTrashConfirm, setShowTrashConfirm] = useState(false);
+  const [isTrashingBatch, setIsTrashingBatch] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const selection = useFileSelection();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -137,12 +193,13 @@ export function DrivePage({
 
   const handleDownload = useCallback(
     (file: DriveFile) => {
+      addRecent(file);
       downloadFile.mutate(
         { fileId: file.id, fileName: file.name },
         { onError: () => toast.error("Download failed") },
       );
     },
-    [downloadFile],
+    [downloadFile, addRecent],
   );
 
   const handleTrash = useCallback(
@@ -155,10 +212,146 @@ export function DrivePage({
     [trashFile],
   );
 
-  const handleNavigate = useCallback(
-    (id: string) => onNavigate(id, teamFolderId),
-    [onNavigate, teamFolderId],
+  const handleStar = useCallback(
+    (file: DriveFile) => {
+      if (file.starred) {
+        unstarFile.mutate(file.id);
+      } else {
+        starFile.mutate(file.id);
+      }
+    },
+    [starFile, unstarFile],
   );
+
+  const handleArchive = useCallback(
+    (file: DriveFile) => {
+      archiveFiles.mutate(
+        { fileIds: [file.id], archiveName: `${file.name}.zip` },
+        { onError: () => toast.error("Archive download failed") },
+      );
+    },
+    [archiveFiles],
+  );
+
+  const handleFileClick = useCallback(
+    (file: DriveFile) => {
+      addRecent(file);
+      setPreviewFile(file);
+    },
+    [addRecent],
+  );
+
+  // Clear search and selection when folder/teamFolder changes
+  useEffect(() => {
+    setSearchQuery("");
+    selection.clear();
+  }, [folderId, teamFolderId]);
+
+  const handleNavigate = useCallback(
+    (id: string) => {
+      setSearchQuery("");
+      selection.clear();
+      onNavigate(id, teamFolderId);
+    },
+    [onNavigate, teamFolderId, selection],
+  );
+
+  const fileIds = useMemo(() => files.map((f) => f.id), [files]);
+
+  // Share status for indicators
+  const { data: shareStatusData } = useFileShareStatus(workspaceId, fileIds);
+  const sharedFileIds = useMemo(
+    () => new Set(shareStatusData?.data ?? []),
+    [shareStatusData],
+  );
+
+  const handleShare = useCallback(
+    (file: DriveFile) => {
+      setShareTarget({ fileIds: [file.id], fileName: file.name });
+    },
+    [],
+  );
+
+  const handleSelect = useCallback(
+    (file: DriveFile, event: React.MouseEvent) => {
+      selection.toggle(file.id, fileIds, event);
+    },
+    [selection, fileIds],
+  );
+
+  const handleToggleAll = useCallback(() => {
+    selection.toggleAll(fileIds);
+  }, [selection, fileIds]);
+
+  const selectedFiles = useMemo(
+    () => files.filter((f) => selection.selectedIds.has(f.id)),
+    [files, selection.selectedIds],
+  );
+
+  const handleMoveSelected = useCallback(() => {
+    setMoveFileIds(Array.from(selection.selectedIds));
+  }, [selection.selectedIds]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      // Escape: close preview if open, else clear selection
+      if (e.key === "Escape") {
+        if (previewFile) {
+          setPreviewFile(null);
+        } else if (selection.count > 0) {
+          selection.clear();
+        }
+        return;
+      }
+
+      // Ctrl/Cmd+A: select all
+      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        e.preventDefault();
+        selection.toggleAll(fileIds);
+        return;
+      }
+
+      // Delete/Backspace: trash selected
+      if ((e.key === "Delete" || e.key === "Backspace") && canEdit && selection.count > 0) {
+        e.preventDefault();
+        setShowTrashConfirm(true);
+      }
+    };
+
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [previewFile, selection, fileIds, canEdit]);
+
+  const handleKeyboardTrash = useCallback(async () => {
+    const selected = Array.from(selection.selectedIds);
+    setIsTrashingBatch(true);
+    const results = await Promise.allSettled(
+      selected.map(
+        (fid) =>
+          new Promise<void>((resolve, reject) => {
+            trashFile.mutate(fid, {
+              onSuccess: () => resolve(),
+              onError: (err) => reject(err),
+            });
+          }),
+      ),
+    );
+    setIsTrashingBatch(false);
+    setShowTrashConfirm(false);
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed === 0) {
+      toast.success(`Moved ${selected.length} file${selected.length !== 1 ? "s" : ""} to trash`);
+    } else {
+      toast.error(`${failed} file${failed !== 1 ? "s" : ""} failed to trash`);
+    }
+    selection.clear();
+  }, [selection, trashFile]);
 
   const dragOverlayIcon = activeDrag
     ? getFileIcon(activeDrag.mimeType, activeDrag.isFolder)
@@ -183,12 +376,27 @@ export function DrivePage({
           hasNextPage={!!hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           canEdit={canEdit}
+          selectable={canEdit}
+          selectedIds={selection.selectedIds}
+          anySelected={selection.count > 0}
+          allSelected={selection.allSelected(fileIds)}
+          onToggleAll={handleToggleAll}
+          onSelect={handleSelect}
           onLoadMore={handleLoadMore}
           onNavigate={handleNavigate}
+          onFileClick={handleFileClick}
           onDownload={handleDownload}
           onRename={setRenameFile}
           onMove={setMoveFileDialog}
           onTrash={handleTrash}
+          onCopy={canEdit ? setCopyFileDialog : undefined}
+          onStar={handleStar}
+          onShare={canEdit ? handleShare : undefined}
+          onArchive={handleArchive}
+          sharedFileIds={sharedFileIds}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={handleSort}
         />
       ) : (
         <FileGridView
@@ -196,12 +404,25 @@ export function DrivePage({
           hasNextPage={!!hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           canEdit={canEdit}
+          selectable={canEdit}
+          selectedIds={selection.selectedIds}
+          anySelected={selection.count > 0}
+          onSelect={handleSelect}
           onLoadMore={handleLoadMore}
           onNavigate={handleNavigate}
+          onFileClick={handleFileClick}
           onDownload={handleDownload}
           onRename={setRenameFile}
           onMove={setMoveFileDialog}
           onTrash={handleTrash}
+          onCopy={canEdit ? setCopyFileDialog : undefined}
+          onStar={handleStar}
+          onShare={canEdit ? handleShare : undefined}
+          onArchive={handleArchive}
+          sharedFileIds={sharedFileIds}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={handleSort}
         />
       )}
     </>
@@ -227,6 +448,11 @@ export function DrivePage({
             ) : (
               <>
                 <h1 className="text-2xl font-bold">Drive</h1>
+                <SearchInput
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="Search files..."
+                />
               </>
             )}
           </div>
@@ -295,7 +521,7 @@ export function DrivePage({
           )}
         </div>
         </div>
-        {!trash && (folderId || teamFolderId) && (
+        {!trash && !isSearching && (folderId || teamFolderId) && (
           <FileBreadcrumbs
             workspaceId={workspaceId}
             folderId={folderId}
@@ -303,6 +529,11 @@ export function DrivePage({
             teamFolderName={currentTeamFolder?.name}
             onNavigate={onNavigate}
           />
+        )}
+        {isSearching && (
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
+            Search results
+          </h3>
         )}
       </div>
 
@@ -318,8 +549,26 @@ export function DrivePage({
           disabled={!canEdit}
         >
           <div className="flex-1 overflow-y-auto">
-            {/* Team folders section — only at root */}
-            {isRoot && (
+            {/* Starred section — home or starred view */}
+            {(showInlineSections || (section === "starred" && isRoot && !isSearching)) && (
+              <StarredSection
+                workspaceId={workspaceId}
+                onNavigate={onNavigate}
+                onFileClick={handleFileClick}
+              />
+            )}
+
+            {/* Recent files section — home or recent view */}
+            {(showInlineSections || (section === "recent" && isRoot && !isSearching)) && (
+              <RecentFilesSection
+                recents={recents}
+                onNavigate={onNavigate}
+                onFileClick={handleFileClick}
+              />
+            )}
+
+            {/* Team folders section — home only */}
+            {showInlineSections && (
               <TeamFoldersSection
                 workspaceId={workspaceId}
                 isAdmin={isAdmin}
@@ -327,8 +576,8 @@ export function DrivePage({
               />
             )}
 
-            {/* Personal files header at root */}
-            {isRoot && (
+            {/* Personal files header at root, home view only */}
+            {showInlineSections && (
               <div className="px-4 pt-3 pb-1">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
                   My Files
@@ -375,20 +624,81 @@ export function DrivePage({
         file={renameFile}
         onClose={() => setRenameFile(null)}
         workspaceId={workspaceId}
-        parentId={folderId}
-        teamFolderId={teamFolderId}
       />
 
       <MoveDialog
         file={moveFileDialog}
-        onClose={() => setMoveFileDialog(null)}
+        fileIds={moveFileIds.length > 0 ? moveFileIds : undefined}
+        onClose={() => {
+          setMoveFileDialog(null);
+          setMoveFileIds([]);
+          if (moveFileIds.length > 0) selection.clear();
+        }}
         workspaceId={workspaceId}
+      />
+
+      {shareTarget && (
+        <ShareFileDialog
+          open
+          onClose={() => setShareTarget(null)}
+          workspaceId={workspaceId}
+          fileIds={shareTarget.fileIds}
+          fileName={shareTarget.fileName}
+        />
+      )}
+
+      <MoveDialog
+        file={copyFileDialog}
+        onClose={() => setCopyFileDialog(null)}
+        workspaceId={workspaceId}
+        mode="copy"
       />
 
       <UploadProgress
         uploads={uploads}
         onDismiss={clearUploads}
       />
+
+      {/* Keyboard-triggered trash confirm */}
+      <ConfirmDialog
+        open={showTrashConfirm}
+        onClose={() => setShowTrashConfirm(false)}
+        onConfirm={handleKeyboardTrash}
+        title={`Move ${selection.count} item${selection.count !== 1 ? "s" : ""} to trash?`}
+        description="Items in trash can be restored later."
+        confirmLabel="Trash"
+        variant="destructive"
+        loading={isTrashingBatch}
+      />
+
+      {/* Bulk Actions */}
+      {selection.count > 0 && (
+        <DriveBulkActions
+          workspaceId={workspaceId}
+          selectedFiles={selectedFiles}
+          onClear={selection.clear}
+          onMoveSelected={handleMoveSelected}
+          onShareSelected={() => {
+            const ids = Array.from(selection.selectedIds);
+            setShareTarget({
+              fileIds: ids,
+              fileName: `${ids.length} files`,
+            });
+          }}
+          parentId={folderId ?? null}
+          teamFolderId={teamFolderId}
+        />
+      )}
+
+      {/* File Preview */}
+      {previewFile && (
+        <FilePreviewSlideover
+          file={previewFile}
+          workspaceId={workspaceId}
+          onClose={() => setPreviewFile(null)}
+          onDownload={handleDownload}
+        />
+      )}
     </div>
   );
 }

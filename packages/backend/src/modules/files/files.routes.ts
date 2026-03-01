@@ -3,12 +3,17 @@ import {
   uploadFileHandler,
   createFolderHandler,
   listFilesHandler,
+  listStarredFilesHandler,
+  starFileHandler,
+  unstarFileHandler,
   getFileHandler,
   downloadFileHandler,
   updateFileHandler,
   getFileBreadcrumbsHandler,
   getFileAttachmentCountHandler,
+  copyFileHandler,
   deleteFileHandler,
+  archiveFilesHandler,
 } from "./files.controller.js";
 import { authenticate } from "../../middleware/authenticate.js";
 import { authorize } from "../../middleware/authorize.js";
@@ -17,6 +22,8 @@ import {
   CreateFolderSchema,
   UpdateFileSchema,
   FileQuerySchema,
+  CopyFileSchema,
+  ArchiveFilesSchema,
 } from "@pm/shared";
 
 export default async function filesRoutes(fastify: FastifyInstance) {
@@ -50,6 +57,30 @@ export default async function filesRoutes(fastify: FastifyInstance) {
       validateQuery(FileQuerySchema),
     ],
     handler: listFilesHandler,
+  });
+
+  // GET /api/workspaces/:wid/files/starred — List starred files
+  fastify.route({
+    method: "GET",
+    url: "/workspaces/:wid/files/starred",
+    preHandler: [authenticate, authorize("ADMIN", "MEMBER", "VIEWER")],
+    handler: listStarredFilesHandler,
+  });
+
+  // POST /api/workspaces/:wid/files/:fid/star — Star a file
+  fastify.route({
+    method: "POST",
+    url: "/workspaces/:wid/files/:fid/star",
+    preHandler: [authenticate, authorize("ADMIN", "MEMBER", "VIEWER")],
+    handler: starFileHandler,
+  });
+
+  // DELETE /api/workspaces/:wid/files/:fid/star — Unstar a file
+  fastify.route({
+    method: "DELETE",
+    url: "/workspaces/:wid/files/:fid/star",
+    preHandler: [authenticate, authorize("ADMIN", "MEMBER", "VIEWER")],
+    handler: unstarFileHandler,
   });
 
   // GET /api/workspaces/:wid/files/:fid — Get file metadata
@@ -94,6 +125,30 @@ export default async function filesRoutes(fastify: FastifyInstance) {
     url: "/workspaces/:wid/files/:fid/attachments-count",
     preHandler: [authenticate, authorize("ADMIN", "MEMBER")],
     handler: getFileAttachmentCountHandler,
+  });
+
+  // POST /api/workspaces/:wid/files/:fid/copy — Copy file
+  fastify.route({
+    method: "POST",
+    url: "/workspaces/:wid/files/:fid/copy",
+    preHandler: [
+      authenticate,
+      authorize("ADMIN", "MEMBER"),
+      validate(CopyFileSchema),
+    ],
+    handler: copyFileHandler,
+  });
+
+  // POST /api/workspaces/:wid/files/archive — Download multiple files as ZIP
+  fastify.route({
+    method: "POST",
+    url: "/workspaces/:wid/files/archive",
+    preHandler: [
+      authenticate,
+      authorize("ADMIN", "MEMBER", "VIEWER"),
+      validate(ArchiveFilesSchema),
+    ],
+    handler: archiveFilesHandler,
   });
 
   // DELETE /api/workspaces/:wid/files/:fid — Delete file/folder

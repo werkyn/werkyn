@@ -1,5 +1,6 @@
 import { useBreadcrumbs } from "../api";
 import { ArrowLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,8 +34,8 @@ export function FileBreadcrumbs({
 
   const handleBack = () => {
     if (teamFolderId && displayCrumbs.length === 0) {
-      // We're at team folder root — go back to Drive root
-      onNavigate(undefined, undefined);
+      // We're at team folder root — stay here (sidebar navigates away)
+      return;
     } else if (displayCrumbs.length > 0) {
       const parentIndex = displayCrumbs.length - 2;
       if (parentIndex >= 0) {
@@ -48,9 +49,12 @@ export function FileBreadcrumbs({
     }
   };
 
+  const isInsideTeamFolder = !!teamFolderId;
+
   return (
     <div className="flex items-center gap-1 text-sm min-w-0">
-      {(folderId || teamFolderId) && (
+      {/* Back button — only show when navigated into a subfolder */}
+      {((isInsideTeamFolder && displayCrumbs.length > 0) || (!isInsideTeamFolder && folderId)) && (
         <button
           onClick={handleBack}
           aria-label="Go back"
@@ -60,33 +64,30 @@ export function FileBreadcrumbs({
         </button>
       )}
 
-      <button
-        onClick={() => onNavigate(undefined, undefined)}
-        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-      >
-        Drive
-      </button>
-
-      {/* Team folder name crumb */}
-      {teamFolderId && teamFolderName && (
-        <span className="flex items-center gap-1 min-w-0">
-          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-          {displayCrumbs.length === 0 ? (
-            <span className="truncate font-medium">{teamFolderName}</span>
-          ) : (
-            <button
-              onClick={() => {
-                // Navigate to team folder root
-                if (crumbs.length > 0) {
-                  onNavigate(crumbs[0].id, teamFolderId);
-                }
-              }}
-              className="truncate text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {teamFolderName}
-            </button>
+      {/* Root crumb: "Drive" for personal files, team folder name for team folders */}
+      {isInsideTeamFolder && teamFolderName ? (
+        <button
+          onClick={() => {
+            if (crumbs.length > 0) {
+              onNavigate(crumbs[0].id, teamFolderId);
+            }
+          }}
+          className={cn(
+            "shrink-0 transition-colors",
+            displayCrumbs.length === 0
+              ? "font-medium text-foreground"
+              : "text-muted-foreground hover:text-foreground",
           )}
-        </span>
+        >
+          {teamFolderName}
+        </button>
+      ) : (
+        <button
+          onClick={() => onNavigate(undefined, undefined)}
+          className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Drive
+        </button>
       )}
 
       {/* Sub-folder crumbs */}

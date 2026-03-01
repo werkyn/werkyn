@@ -15,19 +15,15 @@ interface RenameDialogProps {
   file: DriveFile | null;
   onClose: () => void;
   workspaceId: string;
-  parentId?: string | null;
-  teamFolderId?: string;
 }
 
 export function RenameDialog({
   file,
   onClose,
   workspaceId,
-  parentId,
-  teamFolderId,
 }: RenameDialogProps) {
   const [name, setName] = useState("");
-  const renameFile = useRenameFile(workspaceId, parentId, teamFolderId);
+  const renameFile = useRenameFile(workspaceId);
 
   useEffect(() => {
     if (file) setName(file.name);

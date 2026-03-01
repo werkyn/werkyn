@@ -56,8 +56,34 @@ export function getFileIcon(mimeType: string | null, isFolder: boolean): LucideI
   return File;
 }
 
-export function formatFileSize(bytes: number | null): string {
-  if (bytes === null) return "—";
+export type PreviewType = "image" | "video" | "audio" | "pdf" | "text" | "unsupported";
+
+const TEXT_MIME_TYPES = [
+  "application/json",
+  "application/xml",
+  "text/xml",
+  "application/javascript",
+  "text/javascript",
+  "application/typescript",
+  "text/css",
+  "text/html",
+  "application/x-yaml",
+  "application/x-sh",
+];
+
+export function getPreviewType(mimeType: string | null): PreviewType {
+  if (!mimeType) return "unsupported";
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("video/")) return "video";
+  if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType === "application/pdf") return "pdf";
+  if (mimeType.startsWith("text/") || TEXT_MIME_TYPES.includes(mimeType))
+    return "text";
+  return "unsupported";
+}
+
+export function formatFileSize(bytes: number | null | undefined): string {
+  if (bytes == null) return "—";
   if (bytes === 0) return "0 B";
 
   const units = ["B", "KB", "MB", "GB"];

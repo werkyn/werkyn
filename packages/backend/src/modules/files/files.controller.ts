@@ -4,6 +4,8 @@ import type {
   CreateFolderInput,
   UpdateFileInput,
   FileQueryInput,
+  CopyFileInput,
+  ArchiveFilesInput,
 } from "@pm/shared";
 import { ValidationError } from "../../utils/errors.js";
 
@@ -106,6 +108,7 @@ export async function downloadFileHandler(
   reply: FastifyReply,
 ) {
   const params = request.params as { wid: string; fid: string };
+  const query = request.query as { inline?: string };
 
   const { stream, file } = await filesService.downloadFile(
     request.server.storage,
@@ -117,13 +120,14 @@ export async function downloadFileHandler(
 
   const safeName = file.name.replace(/"/g, '\\"');
   const encodedName = encodeURIComponent(file.name);
+  const isInline = query.inline === "true";
 
   return reply
     .header(
       "Content-Disposition",
-      `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`,
+      `${isInline ? "inline" : "attachment"}; filename="${safeName}"; filename*=UTF-8''${encodedName}`,
     )
-    .header("Content-Type", "application/octet-stream")
+    .header("Content-Type", isInline && file.mimeType ? file.mimeType : "application/octet-stream")
     .send(stream);
 }
 
@@ -177,6 +181,72 @@ export async function getFileAttachmentCountHandler(
   return reply.send({ data: result });
 }
 
+export async function listStarredFilesHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string };
+
+  const files = await filesService.listStarredFiles(
+    request.server.prisma,
+    params.wid,
+    getAccessCtx(request),
+  );
+
+  return reply.send({ data: files });
+}
+
+export async function starFileHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string; fid: string };
+
+  await filesService.starFile(
+    request.server.prisma,
+    params.wid,
+    params.fid,
+    getAccessCtx(request),
+  );
+
+  return reply.status(204).send();
+}
+
+export async function unstarFileHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string; fid: string };
+
+  await filesService.unstarFile(
+    request.server.prisma,
+    params.wid,
+    params.fid,
+    getAccessCtx(request),
+  );
+
+  return reply.status(204).send();
+}
+
+export async function copyFileHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string; fid: string };
+  const body = request.body as CopyFileInput;
+
+  const file = await filesService.copyFile(
+    request.server.prisma,
+    request.server.storage,
+    params.wid,
+    params.fid,
+    body,
+    getAccessCtx(request),
+  );
+
+  return reply.status(201).send({ data: file });
+}
+
 export async function deleteFileHandler(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -193,3 +263,31 @@ export async function deleteFileHandler(
 
   return reply.status(204).send();
 }
+
+export async function archiveFilesHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string };
+  const body = request.body as ArchiveFilesInput;
+
+  const { stream, archiveName } = await filesService.archiveFiles(
+    request.server.prisma,
+    request.server.storage,
+    params.wid,
+    body.fileIds,
+    getAccessCtx(request),
+  );
+
+  const safeName = archiveName.replace(/"/g, '\\"');
+  const encodedName = encodeURIComponent(archiveName);
+
+  return reply
+    .header(
+      "Content-Disposition",
+      `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`,
+    )
+    .header("Content-Type", "application/zip")
+    .send(stream);
+}
+

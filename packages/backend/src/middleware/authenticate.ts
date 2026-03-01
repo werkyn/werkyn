@@ -7,11 +7,13 @@ export async function authenticate(
   reply: FastifyReply,
 ): Promise<void> {
   const authHeader = request.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
+  const queryToken = (request.query as Record<string, string>)?.token;
+
+  if (!authHeader?.startsWith("Bearer ") && !queryToken) {
     throw new UnauthorizedError("Missing or invalid authorization header");
   }
 
-  const token = authHeader.slice(7);
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : queryToken!;
 
   try {
     const payload = verifyAccessToken(token);

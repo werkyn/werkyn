@@ -1,19 +1,42 @@
-import type { DriveFile } from "../api";
+import type { DriveFile, SortBy, SortOrder } from "../api";
 import { useInfiniteScroll } from "../hooks/use-infinite-scroll";
 import { FileRow } from "./file-row";
-import { Loader2 } from "lucide-react";
+import { ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface FileListViewProps {
   files: DriveFile[];
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   canEdit: boolean;
+  selectable?: boolean;
+  selectedIds?: Set<string>;
+  anySelected?: boolean;
+  allSelected?: boolean;
+  onToggleAll?: () => void;
+  onSelect?: (file: DriveFile, event: React.MouseEvent) => void;
   onLoadMore: () => void;
   onNavigate: (folderId: string) => void;
+  onFileClick?: (file: DriveFile) => void;
   onDownload: (file: DriveFile) => void;
   onRename: (file: DriveFile) => void;
   onMove: (file: DriveFile) => void;
   onTrash: (file: DriveFile) => void;
+  onCopy?: (file: DriveFile) => void;
+  onStar?: (file: DriveFile) => void;
+  onShare?: (file: DriveFile) => void;
+  onArchive?: (file: DriveFile) => void;
+  sharedFileIds?: Set<string>;
+  sortBy?: SortBy;
+  sortOrder?: SortOrder;
+  onSort?: (column: SortBy) => void;
+}
+
+function SortIndicator({ column, sortBy, sortOrder }: { column: SortBy; sortBy?: SortBy; sortOrder?: SortOrder }) {
+  if (column !== sortBy) return null;
+  return sortOrder === "asc"
+    ? <ChevronUp className="h-3 w-3" />
+    : <ChevronDown className="h-3 w-3" />;
 }
 
 export function FileListView({
@@ -21,12 +44,27 @@ export function FileListView({
   hasNextPage,
   isFetchingNextPage,
   canEdit,
+  selectable,
+  selectedIds,
+  anySelected,
+  allSelected,
+  onToggleAll,
+  onSelect,
   onLoadMore,
   onNavigate,
+  onFileClick,
   onDownload,
   onRename,
   onMove,
   onTrash,
+  onCopy,
+  onStar,
+  onShare,
+  onArchive,
+  sharedFileIds,
+  sortBy,
+  sortOrder,
+  onSort,
 }: FileListViewProps) {
   const sentinelRef = useInfiniteScroll(hasNextPage, isFetchingNextPage, onLoadMore);
 
@@ -39,15 +77,67 @@ export function FileListView({
     );
   }
 
+  const sortableHeaderClass = "cursor-pointer select-none hover:text-foreground transition-colors";
+
   return (
     <div>
       <table className="w-full">
         <thead>
-          <tr className="border-b text-left text-xs text-muted-foreground">
-            <th scope="col" className="px-3 py-2 font-medium">Name</th>
-            <th scope="col" className="px-3 py-2 font-medium w-24">Size</th>
-            <th scope="col" className="px-3 py-2 font-medium w-32">Uploaded by</th>
-            <th scope="col" className="px-3 py-2 font-medium w-28">Modified</th>
+          <tr className="group/header border-b text-left text-xs text-muted-foreground">
+            <th
+              scope="col"
+              className={cn("px-3 py-2 font-medium", sortableHeaderClass)}
+              onClick={() => onSort?.("name")}
+            >
+              <div className="flex items-center gap-2">
+                {selectable && (
+                  <div className="relative h-4 w-4 shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={!!allSelected}
+                      onChange={() => onToggleAll?.()}
+                      onClick={(e) => e.stopPropagation()}
+                      className={cn(
+                        "h-4 w-4 rounded border-input accent-primary cursor-pointer transition-opacity",
+                        anySelected ? "opacity-100" : "opacity-0 group-hover/header:opacity-100",
+                      )}
+                    />
+                  </div>
+                )}
+                Name
+                <SortIndicator column="name" sortBy={sortBy} sortOrder={sortOrder} />
+              </div>
+            </th>
+            <th
+              scope="col"
+              className={cn("px-3 py-2 font-medium w-24", sortableHeaderClass)}
+              onClick={() => onSort?.("size")}
+            >
+              <div className="flex items-center gap-1">
+                Size
+                <SortIndicator column="size" sortBy={sortBy} sortOrder={sortOrder} />
+              </div>
+            </th>
+            <th
+              scope="col"
+              className={cn("px-3 py-2 font-medium w-32", sortableHeaderClass)}
+              onClick={() => onSort?.("uploadedBy")}
+            >
+              <div className="flex items-center gap-1">
+                Uploaded by
+                <SortIndicator column="uploadedBy" sortBy={sortBy} sortOrder={sortOrder} />
+              </div>
+            </th>
+            <th
+              scope="col"
+              className={cn("px-3 py-2 font-medium w-28", sortableHeaderClass)}
+              onClick={() => onSort?.("updatedAt")}
+            >
+              <div className="flex items-center gap-1">
+                Modified
+                <SortIndicator column="updatedAt" sortBy={sortBy} sortOrder={sortOrder} />
+              </div>
+            </th>
             <th scope="col" className="px-3 py-2 w-10" />
           </tr>
         </thead>
@@ -57,11 +147,21 @@ export function FileListView({
               key={file.id}
               file={file}
               canEdit={canEdit}
+              selectable={selectable}
+              selected={selectedIds?.has(file.id)}
+              anySelected={anySelected}
+              onSelect={onSelect}
               onNavigate={onNavigate}
+              onFileClick={onFileClick}
               onDownload={onDownload}
               onRename={onRename}
               onMove={onMove}
               onTrash={onTrash}
+              onCopy={onCopy}
+              onStar={onStar}
+              onShare={onShare}
+              onArchive={onArchive}
+              isShared={sharedFileIds?.has(file.id)}
             />
           ))}
         </tbody>

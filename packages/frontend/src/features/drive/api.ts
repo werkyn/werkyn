@@ -21,6 +21,7 @@ export interface DriveFile {
   ownerId: string | null;
   teamFolderId: string | null;
   trashedAt: string | null;
+  starred?: boolean;
   createdAt: string;
   updatedAt: string;
   uploadedBy: {
@@ -84,20 +85,35 @@ interface FilesResponse {
 
 // ── File Queries ──
 
+export type SortBy = "name" | "size" | "updatedAt" | "uploadedBy";
+export type SortOrder = "asc" | "desc";
+
 export function useFiles(
   wid: string,
   parentId?: string | null,
   teamFolderId?: string,
-  options?: { enabled?: boolean },
+  search?: string,
+  options?: { enabled?: boolean; sortBy?: SortBy; sortOrder?: SortOrder },
 ) {
+  const isSearching = !!search;
+  const sortBy = options?.sortBy ?? "name";
+  const sortOrder = options?.sortOrder ?? "asc";
   return useInfiniteQuery({
-    queryKey: queryKeys.files(wid, parentId, teamFolderId),
+    queryKey: isSearching
+      ? queryKeys.fileSearch(wid, search, sortBy, sortOrder)
+      : queryKeys.files(wid, parentId, teamFolderId, sortBy, sortOrder),
     queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
       const params = new URLSearchParams();
-      if (parentId) params.set("parentId", parentId);
-      if (teamFolderId) params.set("teamFolderId", teamFolderId);
+      if (isSearching) {
+        params.set("search", search);
+      } else {
+        if (parentId) params.set("parentId", parentId);
+        if (teamFolderId) params.set("teamFolderId", teamFolderId);
+      }
       if (pageParam) params.set("cursor", pageParam);
       params.set("limit", "50");
+      params.set("sortBy", sortBy);
+      params.set("sortOrder", sortOrder);
 
       const qs = params.toString();
       return api
@@ -179,7 +195,7 @@ export function useCreateFolder(wid: string, parentId?: string | null, teamFolde
         })
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.files(wid, parentId, teamFolderId) });
+      qc.invalidateQueries({ queryKey: ["files"] });
     },
   });
 }
@@ -240,12 +256,12 @@ export function uploadSingleFile(
   return { promise, abort: () => xhrRef?.abort() };
 }
 
-export function useInvalidateFiles(wid: string, parentId?: string | null, teamFolderId?: string) {
+export function useInvalidateFiles(wid: string) {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: queryKeys.files(wid, parentId, teamFolderId) });
+  return () => qc.invalidateQueries({ queryKey: ["files"] });
 }
 
-export function useRenameFile(wid: string, parentId?: string | null, teamFolderId?: string) {
+export function useRenameFile(wid: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ fileId, name }: { fileId: string; name: string }) =>
@@ -253,7 +269,59 @@ export function useRenameFile(wid: string, parentId?: string | null, teamFolderI
         .patch(`workspaces/${wid}/files/${fileId}`, { json: { name } })
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.files(wid, parentId, teamFolderId) });
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useStarredFiles(wid: string) {
+  return useQuery({
+    queryKey: queryKeys.starredFiles(wid),
+    queryFn: () =>
+      api
+        .get(`workspaces/${wid}/files/starred`)
+        .json<{ data: DriveFile[] }>(),
+    enabled: !!wid,
+  });
+}
+
+export function useStarFile(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: string) =>
+      api.post(`workspaces/${wid}/files/${fileId}/star`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useUnstarFile(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: string) =>
+      api.delete(`workspaces/${wid}/files/${fileId}/star`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useCopyFile(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      fileId,
+      parentId,
+    }: {
+      fileId: string;
+      parentId: string | null;
+    }) =>
+      api
+        .post(`workspaces/${wid}/files/${fileId}/copy`, { json: { parentId } })
+        .json<{ data: DriveFile }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["files"] });
     },
   });
 }
@@ -279,7 +347,7 @@ export function useMoveFile(wid: string) {
   });
 }
 
-export function useTrashFile(wid: string, parentId?: string | null, teamFolderId?: string) {
+export function useTrashFile(wid: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (fileId: string) =>
@@ -289,8 +357,7 @@ export function useTrashFile(wid: string, parentId?: string | null, teamFolderId
         })
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.files(wid, parentId, teamFolderId) });
-      qc.invalidateQueries({ queryKey: queryKeys.trashedFiles(wid) });
+      qc.invalidateQueries({ queryKey: ["files"] });
     },
   });
 }
@@ -334,6 +401,61 @@ export function useFileAttachmentCount(wid: string, fileId: string | null) {
   });
 }
 
+export function useFilePreviewUrl(wid: string, fileId: string | null, mimeType?: string | null) {
+  return useQuery({
+    queryKey: ["file-preview", { wid, fileId }],
+    queryFn: async () => {
+      const token = useAuthStore.getState().accessToken;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+
+      const response = await fetch(
+        `${baseUrl}/workspaces/${wid}/files/${fileId}/download?inline=true`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        },
+      );
+
+      if (!response.ok) throw new Error("Preview failed");
+
+      const rawBlob = await response.blob();
+      // Ensure the blob has the correct MIME type (needed for PDF viewer in iframes)
+      const blob = mimeType ? new Blob([rawBlob], { type: mimeType }) : rawBlob;
+      return URL.createObjectURL(blob);
+    },
+    enabled: !!fileId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useFileTextContent(wid: string, fileId: string | null) {
+  return useQuery({
+    queryKey: ["file-text", { wid, fileId }],
+    queryFn: async () => {
+      const token = useAuthStore.getState().accessToken;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+
+      const response = await fetch(
+        `${baseUrl}/workspaces/${wid}/files/${fileId}/download?inline=true`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        },
+      );
+
+      if (!response.ok) throw new Error("Preview failed");
+
+      return response.text();
+    },
+    enabled: !!fileId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useDownloadFile(wid: string) {
   return useMutation({
     mutationFn: async ({ fileId, fileName }: { fileId: string; fileName: string }) => {
@@ -360,6 +482,41 @@ export function useDownloadFile(wid: string) {
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+  });
+}
+
+export function useArchiveFiles(wid: string) {
+  return useMutation({
+    mutationFn: async ({ fileIds, archiveName }: { fileIds: string[]; archiveName: string }) => {
+      const token = useAuthStore.getState().accessToken;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+
+      const response = await fetch(
+        `${baseUrl}/workspaces/${wid}/files/archive`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+          body: JSON.stringify({ fileIds }),
+        },
+      );
+
+      if (!response.ok) throw new Error("Archive download failed");
+
+      const blob = await response.blob();
+      const downloadBlob = new Blob([blob], { type: "application/zip" });
+      const url = URL.createObjectURL(downloadBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = archiveName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -427,6 +584,211 @@ export function useAddTeamFolderMember(wid: string, tfid: string) {
       qc.invalidateQueries({ queryKey: queryKeys.teamFolder(wid, tfid) });
       qc.invalidateQueries({ queryKey: queryKeys.teamFolders(wid) });
     },
+  });
+}
+
+// ── File Share Types ──
+
+export interface FileShareMember {
+  id: string;
+  sharedWith: { id: string; displayName: string; avatarUrl: string | null; email: string };
+  sharedBy: { id: string; displayName: string; avatarUrl: string | null };
+  createdAt: string;
+}
+
+export interface FileShareLinkDetail {
+  id: string;
+  token: string;
+  passwordHash: string | null;
+  expiresAt: string | null;
+  enabled: boolean;
+  files: { file: { id: string; name: string; mimeType: string | null; size: number | null } }[];
+  createdBy: { id: string; displayName: string; avatarUrl: string | null };
+  createdAt: string;
+}
+
+export interface SharedFileEntry {
+  id: string;
+  file: DriveFile;
+  sharedBy?: { id: string; displayName: string; avatarUrl: string | null };
+  sharedWith?: { id: string; displayName: string; avatarUrl: string | null; email: string } | null;
+  shareType?: "member" | "link";
+  createdAt: string;
+}
+
+interface PublicShareData {
+  files: { file: { id: string; name: string; mimeType: string | null; size: number | null } }[];
+  createdBy: { id: string; displayName: string; avatarUrl: string | null };
+  hasPassword: boolean;
+  createdAt: string;
+}
+
+// ── File Share Queries ──
+
+export function useFileShares(wid: string, fileId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.fileShares(wid, fileId!),
+    queryFn: () =>
+      api
+        .get(`workspaces/${wid}/files/${fileId}/shares`)
+        .json<{ data: FileShareMember[] }>(),
+    enabled: !!fileId,
+  });
+}
+
+export function useFileShareLinks(wid: string, fileId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.fileShareLinks(wid, fileId!),
+    queryFn: () =>
+      api
+        .get(`workspaces/${wid}/files/${fileId}/share-links`)
+        .json<{ data: FileShareLinkDetail[] }>(),
+    enabled: !!fileId,
+  });
+}
+
+export function useFileShareStatus(wid: string, fileIds: string[]) {
+  return useQuery({
+    queryKey: queryKeys.fileShareStatus(wid, fileIds),
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.set("fileIds", fileIds.join(","));
+      return api
+        .get(`workspaces/${wid}/files/share-status?${params.toString()}`)
+        .json<{ data: string[] }>();
+    },
+    enabled: fileIds.length > 0,
+  });
+}
+
+export function useSharedWithMe(wid: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.sharedWithMe(wid),
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const params = new URLSearchParams();
+      params.set("limit", "50");
+      if (pageParam) params.set("cursor", pageParam);
+      return api
+        .get(`workspaces/${wid}/files/shared-with-me?${params.toString()}`)
+        .json<{ data: SharedFileEntry[]; nextCursor: string | null }>();
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+}
+
+export function useSharedByMe(wid: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.sharedByMe(wid),
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const params = new URLSearchParams();
+      params.set("limit", "50");
+      if (pageParam) params.set("cursor", pageParam);
+      return api
+        .get(`workspaces/${wid}/files/shared-by-me?${params.toString()}`)
+        .json<{ data: SharedFileEntry[]; nextCursor: string | null }>();
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+}
+
+// ── File Share Mutations ──
+
+export function useCreateFileShares(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { fileIds: string[]; userIds: string[] }) =>
+      api
+        .post(`workspaces/${wid}/files/shares`, { json: input })
+        .json<{ data: { count: number } }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["file-shares"] });
+      qc.invalidateQueries({ queryKey: ["file-share-status"] });
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useRemoveFileShare(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fileId, userId }: { fileId: string; userId: string }) =>
+      api.delete(`workspaces/${wid}/files/${fileId}/shares/${userId}`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["file-shares"] });
+      qc.invalidateQueries({ queryKey: ["file-share-status"] });
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useCreateFileShareLink(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { fileIds: string[]; password?: string; expiresAt?: string }) =>
+      api
+        .post(`workspaces/${wid}/files/share-links`, { json: input })
+        .json<{ data: FileShareLinkDetail }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["file-share-links"] });
+      qc.invalidateQueries({ queryKey: ["file-share-status"] });
+      qc.invalidateQueries({ queryKey: queryKeys.sharedByMe(wid) });
+    },
+  });
+}
+
+export function useUpdateFileShareLink(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      linkId,
+      ...input
+    }: {
+      linkId: string;
+      enabled?: boolean;
+      password?: string | null;
+      expiresAt?: string | null;
+    }) =>
+      api
+        .patch(`workspaces/${wid}/file-share-links/${linkId}`, { json: input })
+        .json<{ data: FileShareLinkDetail }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["file-share-links"] });
+    },
+  });
+}
+
+export function useDeleteFileShareLink(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (linkId: string) =>
+      api.delete(`workspaces/${wid}/file-share-links/${linkId}`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["file-share-links"] });
+      qc.invalidateQueries({ queryKey: ["file-share-status"] });
+      qc.invalidateQueries({ queryKey: queryKeys.sharedByMe(wid) });
+    },
+  });
+}
+
+export function usePublicFileShare(token: string) {
+  return useQuery({
+    queryKey: ["public-file-share", token],
+    queryFn: () =>
+      api
+        .get(`public/files/${token}`)
+        .json<{ data: PublicShareData }>(),
+    enabled: !!token,
+  });
+}
+
+export function useValidateFileShare() {
+  return useMutation({
+    mutationFn: ({ token, password }: { token: string; password: string }) =>
+      api
+        .post(`public/files/${token}/validate`, { json: { password } })
+        .json<{ data: { valid: boolean } }>(),
   });
 }
 
