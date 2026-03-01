@@ -8,6 +8,7 @@ import {
   Star,
   Trash2,
   Folder,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ interface DriveSidebarProps {
   activeTeamFolderId?: string;
   onSectionChange: (section: DriveSection) => void;
   onTeamFolderClick: (folderId: string, teamFolderId: string) => void;
+  onCreateTeamFolder?: () => void;
   className?: string;
 }
 
@@ -45,6 +47,7 @@ export function DriveSidebar({
   activeTeamFolderId,
   onSectionChange,
   onTeamFolderClick,
+  onCreateTeamFolder,
   className,
 }: DriveSidebarProps) {
   const { data: teamFoldersData } = useTeamFolders(workspaceId);
@@ -73,11 +76,22 @@ export function DriveSidebar({
         </nav>
       </div>
 
-      {teamFolders.length > 0 && (
-        <div className="border-t px-3 py-4">
-          <h3 className="mb-2 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+      <div className="border-t px-3 py-4">
+        <div className="mb-2 flex items-center justify-between px-2">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Team Folders
           </h3>
+          {onCreateTeamFolder && (
+            <button
+              onClick={onCreateTeamFolder}
+              className="rounded p-0.5 hover:bg-accent transition-colors"
+              aria-label="New team folder"
+            >
+              <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+        {teamFolders.length > 0 && (
           <nav className="space-y-0.5">
             {teamFolders.map((tf) => (
               <button
@@ -95,8 +109,8 @@ export function DriveSidebar({
               </button>
             ))}
           </nav>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

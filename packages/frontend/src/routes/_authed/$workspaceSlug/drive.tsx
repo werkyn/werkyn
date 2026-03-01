@@ -1,13 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { DrivePage } from "@/features/drive/components/drive-page";
 import { DriveLayout } from "@/features/drive/components/drive-layout";
 import { SharedWithMeView } from "@/features/drive/components/shared-with-me-view";
 import { SharedByMeView } from "@/features/drive/components/shared-by-me-view";
+import { CreateTeamFolderDialog } from "@/features/drive/components/create-team-folder-dialog";
 import { useWorkspaceRealtime } from "@/hooks/use-workspace-realtime";
 import { useWorkspaceSettings } from "@/features/admin/api";
+import { usePermissions } from "@/hooks/use-permissions";
 import type { DriveSection } from "@/features/drive/components/drive-sidebar";
 
 const driveSearchSchema = z.object({
@@ -41,9 +43,14 @@ function DriveRoute() {
   const navTo = useNavigate();
 
   const workspaces = useAuthStore((s) => s.workspaces);
-  const workspace = workspaces.find(
+  const user = useAuthStore((s) => s.user);
+  const membership = workspaces.find(
     (w) => w.workspace.slug === workspaceSlug,
-  )?.workspace;
+  );
+  const workspace = membership?.workspace;
+  const permissions = usePermissions(membership, user?.id);
+
+  const [createTeamFolderOpen, setCreateTeamFolderOpen] = useState(false);
 
   const { data: settingsData } = useWorkspaceSettings(workspace?.id ?? "");
   const enabledModules = settingsData?.data?.enabledModules;
@@ -222,14 +229,23 @@ function DriveRoute() {
   };
 
   return (
-    <DriveLayout
-      workspaceId={workspace.id}
-      section={section}
-      activeTeamFolderId={search.teamFolderId}
-      onSectionChange={handleSectionChange}
-      onTeamFolderClick={handleTeamFolderClick}
-    >
-      {renderContent()}
-    </DriveLayout>
+    <>
+      <DriveLayout
+        workspaceId={workspace.id}
+        section={section}
+        activeTeamFolderId={search.teamFolderId}
+        onSectionChange={handleSectionChange}
+        onTeamFolderClick={handleTeamFolderClick}
+        onCreateTeamFolder={permissions.canManageWorkspace ? () => setCreateTeamFolderOpen(true) : undefined}
+      >
+        {renderContent()}
+      </DriveLayout>
+
+      <CreateTeamFolderDialog
+        open={createTeamFolderOpen}
+        onClose={() => setCreateTeamFolderOpen(false)}
+        workspaceId={workspace.id}
+      />
+    </>
   );
 }

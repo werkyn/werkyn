@@ -6,6 +6,7 @@ interface DriveLayoutProps {
   activeTeamFolderId?: string;
   onSectionChange: (section: DriveSection) => void;
   onTeamFolderClick: (folderId: string, teamFolderId: string) => void;
+  onCreateTeamFolder?: () => void;
   children: React.ReactNode;
 }
 
@@ -15,6 +16,7 @@ export function DriveLayout({
   activeTeamFolderId,
   onSectionChange,
   onTeamFolderClick,
+  onCreateTeamFolder,
   children,
 }: DriveLayoutProps) {
   return (
@@ -25,9 +27,10 @@ export function DriveLayout({
         activeTeamFolderId={activeTeamFolderId}
         onSectionChange={onSectionChange}
         onTeamFolderClick={onTeamFolderClick}
+        onCreateTeamFolder={onCreateTeamFolder}
         className="w-60 border-r shrink-0 overflow-y-auto"
       />
-      <div className="flex flex-1 min-w-0 flex-col">
+      <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
         {children}
       </div>
     </div>

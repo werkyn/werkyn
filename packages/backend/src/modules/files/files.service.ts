@@ -566,7 +566,7 @@ async function getUserTeamFolderIds(
   return memberships.map((m) => m.teamFolderId);
 }
 
-// ── Archive & Extract ──────────────────────────────────
+// ── Archive ──────────────────────────────────
 
 interface ArchiveEntry {
   name: string;
