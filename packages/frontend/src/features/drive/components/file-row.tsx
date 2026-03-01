@@ -29,6 +29,7 @@ interface FileRowProps {
   onCopy?: (file: DriveFile) => void;
   onStar?: (file: DriveFile) => void;
   onShare?: (file: DriveFile) => void;
+  onArchive?: (file: DriveFile) => void;
   isShared?: boolean;
 }
 
@@ -48,6 +49,7 @@ export function FileRow({
   onCopy,
   onStar,
   onShare,
+  onArchive,
   isShared,
 }: FileRowProps) {
   const Icon = getFileIcon(file.mimeType, file.isFolder);
@@ -152,6 +154,7 @@ export function FileRow({
             file={file}
             onShare={onShare ? () => onShare(file) : undefined}
             onDownload={() => onDownload(file)}
+            onArchive={onArchive ? () => onArchive(file) : undefined}
             onRename={() => onRename(file)}
             onMove={() => onMove(file)}
             onCopy={onCopy ? () => onCopy(file) : undefined}
@@ -175,6 +178,7 @@ export function FileRow({
           SeparatorComponent={ContextMenuSeparator}
           onShare={onShare ? () => onShare(file) : undefined}
           onDownload={() => onDownload(file)}
+          onArchive={onArchive ? () => onArchive(file) : undefined}
           onRename={() => onRename(file)}
           onMove={() => onMove(file)}
           onCopy={onCopy ? () => onCopy(file) : undefined}

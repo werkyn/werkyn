@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { DriveFile } from "../api";
-import { useDownloadFile, useTrashFile } from "../api";
+import { useArchiveFiles, useTrashFile } from "../api";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { X, FolderInput, Download, Share2, Trash2 } from "lucide-react";
+import { X, FolderInput, Archive, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface DriveBulkActionsProps {
@@ -25,19 +25,19 @@ export function DriveBulkActions({
   parentId,
   teamFolderId,
 }: DriveBulkActionsProps) {
-  const downloadFile = useDownloadFile(workspaceId);
+  const archiveFiles = useArchiveFiles(workspaceId);
   const trashFile = useTrashFile(workspaceId);
   const [showTrashConfirm, setShowTrashConfirm] = useState(false);
   const [isTrashingBatch, setIsTrashingBatch] = useState(false);
 
   const count = selectedFiles.length;
 
-  const handleDownloadAll = async () => {
-    for (const file of selectedFiles) {
-      if (!file.isFolder) {
-        downloadFile.mutate({ fileId: file.id, fileName: file.name });
-      }
-    }
+  const handleDownloadAsZip = () => {
+    const fileIds = selectedFiles.map((f) => f.id);
+    archiveFiles.mutate(
+      { fileIds, archiveName: "files.zip" },
+      { onError: () => toast.error("Archive download failed") },
+    );
   };
 
   const handleTrashAll = async () => {
@@ -67,8 +67,6 @@ export function DriveBulkActions({
     onClear();
   };
 
-  const downloadableCount = selectedFiles.filter((f) => !f.isFolder).length;
-
   return (
     <>
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 rounded-lg border bg-background px-4 py-3 shadow-lg">
@@ -88,17 +86,15 @@ export function DriveBulkActions({
           Move
         </Button>
 
-        {downloadableCount > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownloadAll}
-            disabled={downloadFile.isPending}
-          >
-            <Download className="h-4 w-4 mr-1" />
-            Download
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDownloadAsZip}
+          disabled={archiveFiles.isPending}
+        >
+          <Archive className="h-4 w-4 mr-1" />
+          Download as ZIP
+        </Button>
 
         <Button
           variant="destructive"

@@ -82,7 +82,7 @@ export function UploadDropzone({
 
   return (
     <div
-      className="relative flex-1"
+      className="relative flex-1 min-h-0"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}

@@ -490,6 +490,41 @@ export function useDownloadFile(wid: string) {
   });
 }
 
+export function useArchiveFiles(wid: string) {
+  return useMutation({
+    mutationFn: async ({ fileIds, archiveName }: { fileIds: string[]; archiveName: string }) => {
+      const token = useAuthStore.getState().accessToken;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+
+      const response = await fetch(
+        `${baseUrl}/workspaces/${wid}/files/archive`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+          body: JSON.stringify({ fileIds }),
+        },
+      );
+
+      if (!response.ok) throw new Error("Archive download failed");
+
+      const blob = await response.blob();
+      const downloadBlob = new Blob([blob], { type: "application/zip" });
+      const url = URL.createObjectURL(downloadBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = archiveName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+  });
+}
+
 // ── Team Folder Mutations ──
 
 export function useCreateTeamFolder(wid: string) {

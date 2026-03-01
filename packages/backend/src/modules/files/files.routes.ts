@@ -13,6 +13,7 @@ import {
   getFileAttachmentCountHandler,
   copyFileHandler,
   deleteFileHandler,
+  archiveFilesHandler,
 } from "./files.controller.js";
 import { authenticate } from "../../middleware/authenticate.js";
 import { authorize } from "../../middleware/authorize.js";
@@ -22,6 +23,7 @@ import {
   UpdateFileSchema,
   FileQuerySchema,
   CopyFileSchema,
+  ArchiveFilesSchema,
 } from "@pm/shared";
 
 export default async function filesRoutes(fastify: FastifyInstance) {
@@ -135,6 +137,18 @@ export default async function filesRoutes(fastify: FastifyInstance) {
       validate(CopyFileSchema),
     ],
     handler: copyFileHandler,
+  });
+
+  // POST /api/workspaces/:wid/files/archive — Download multiple files as ZIP
+  fastify.route({
+    method: "POST",
+    url: "/workspaces/:wid/files/archive",
+    preHandler: [
+      authenticate,
+      authorize("ADMIN", "MEMBER", "VIEWER"),
+      validate(ArchiveFilesSchema),
+    ],
+    handler: archiveFilesHandler,
   });
 
   // DELETE /api/workspaces/:wid/files/:fid — Delete file/folder

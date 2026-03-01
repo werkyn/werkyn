@@ -29,6 +29,7 @@ interface FileGridViewProps {
   onCopy?: (file: DriveFile) => void;
   onStar?: (file: DriveFile) => void;
   onShare?: (file: DriveFile) => void;
+  onArchive?: (file: DriveFile) => void;
   sharedFileIds?: Set<string>;
   sortBy?: SortBy;
   sortOrder?: SortOrder;
@@ -61,6 +62,7 @@ export function FileGridView({
   onCopy,
   onStar,
   onShare,
+  onArchive,
   sharedFileIds,
   sortBy = "name",
   sortOrder = "asc",
@@ -123,6 +125,7 @@ export function FileGridView({
             onCopy={onCopy}
             onStar={onStar}
             onShare={onShare}
+            onArchive={onArchive}
             isShared={sharedFileIds?.has(file.id)}
           />
         ))}

@@ -25,6 +25,7 @@ interface FileListViewProps {
   onCopy?: (file: DriveFile) => void;
   onStar?: (file: DriveFile) => void;
   onShare?: (file: DriveFile) => void;
+  onArchive?: (file: DriveFile) => void;
   sharedFileIds?: Set<string>;
   sortBy?: SortBy;
   sortOrder?: SortOrder;
@@ -59,6 +60,7 @@ export function FileListView({
   onCopy,
   onStar,
   onShare,
+  onArchive,
   sharedFileIds,
   sortBy,
   sortOrder,
@@ -158,6 +160,7 @@ export function FileListView({
               onCopy={onCopy}
               onStar={onStar}
               onShare={onShare}
+              onArchive={onArchive}
               isShared={sharedFileIds?.has(file.id)}
             />
           ))}

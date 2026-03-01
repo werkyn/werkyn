@@ -28,6 +28,7 @@ interface FileCardProps {
   onCopy?: (file: DriveFile) => void;
   onStar?: (file: DriveFile) => void;
   onShare?: (file: DriveFile) => void;
+  onArchive?: (file: DriveFile) => void;
   isShared?: boolean;
 }
 
@@ -47,6 +48,7 @@ export function FileCard({
   onCopy,
   onStar,
   onShare,
+  onArchive,
   isShared,
 }: FileCardProps) {
   const Icon = getFileIcon(file.mimeType, file.isFolder);
@@ -82,6 +84,7 @@ export function FileCard({
             file={file}
             onShare={onShare ? () => onShare(file) : undefined}
             onDownload={() => onDownload(file)}
+            onArchive={onArchive ? () => onArchive(file) : undefined}
             onRename={() => onRename(file)}
             onMove={() => onMove(file)}
             onCopy={onCopy ? () => onCopy(file) : undefined}
@@ -163,6 +166,7 @@ export function FileCard({
           SeparatorComponent={ContextMenuSeparator}
           onShare={onShare ? () => onShare(file) : undefined}
           onDownload={() => onDownload(file)}
+          onArchive={onArchive ? () => onArchive(file) : undefined}
           onRename={() => onRename(file)}
           onMove={() => onMove(file)}
           onCopy={onCopy ? () => onCopy(file) : undefined}

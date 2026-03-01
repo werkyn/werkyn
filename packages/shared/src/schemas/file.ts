@@ -42,3 +42,9 @@ export const UploadFileSchema = z.object({
   parentId: z.string().optional(),
 });
 export type UploadFileInput = z.infer<typeof UploadFileSchema>;
+
+export const ArchiveFilesSchema = z.object({
+  fileIds: z.array(z.string()).min(1),
+});
+export type ArchiveFilesInput = z.infer<typeof ArchiveFilesSchema>;
+

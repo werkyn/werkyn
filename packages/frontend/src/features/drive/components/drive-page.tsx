@@ -17,6 +17,7 @@ import {
   useStarFile,
   useUnstarFile,
   useFileShareStatus,
+  useArchiveFiles,
   type DriveFile,
   type SortBy,
   type SortOrder,
@@ -127,6 +128,7 @@ export function DrivePage({
   const moveFile = useMoveFile(workspaceId);
   const starFile = useStarFile(workspaceId);
   const unstarFile = useUnstarFile(workspaceId);
+  const archiveFiles = useArchiveFiles(workspaceId);
 
   const { uploads, handleUpload, clearUploads } = useFileUpload({
     workspaceId,
@@ -219,6 +221,16 @@ export function DrivePage({
       }
     },
     [starFile, unstarFile],
+  );
+
+  const handleArchive = useCallback(
+    (file: DriveFile) => {
+      archiveFiles.mutate(
+        { fileIds: [file.id], archiveName: `${file.name}.zip` },
+        { onError: () => toast.error("Archive download failed") },
+      );
+    },
+    [archiveFiles],
   );
 
   const handleFileClick = useCallback(
@@ -380,6 +392,7 @@ export function DrivePage({
           onCopy={canEdit ? setCopyFileDialog : undefined}
           onStar={handleStar}
           onShare={canEdit ? handleShare : undefined}
+          onArchive={handleArchive}
           sharedFileIds={sharedFileIds}
           sortBy={sortBy}
           sortOrder={sortOrder}
@@ -405,6 +418,7 @@ export function DrivePage({
           onCopy={canEdit ? setCopyFileDialog : undefined}
           onStar={handleStar}
           onShare={canEdit ? handleShare : undefined}
+          onArchive={handleArchive}
           sharedFileIds={sharedFileIds}
           sortBy={sortBy}
           sortOrder={sortOrder}

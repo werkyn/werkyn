@@ -5,6 +5,7 @@ import type {
   UpdateFileInput,
   FileQueryInput,
   CopyFileInput,
+  ArchiveFilesInput,
 } from "@pm/shared";
 import { ValidationError } from "../../utils/errors.js";
 
@@ -262,3 +263,31 @@ export async function deleteFileHandler(
 
   return reply.status(204).send();
 }
+
+export async function archiveFilesHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string };
+  const body = request.body as ArchiveFilesInput;
+
+  const { stream, archiveName } = await filesService.archiveFiles(
+    request.server.prisma,
+    request.server.storage,
+    params.wid,
+    body.fileIds,
+    getAccessCtx(request),
+  );
+
+  const safeName = archiveName.replace(/"/g, '\\"');
+  const encodedName = encodeURIComponent(archiveName);
+
+  return reply
+    .header(
+      "Content-Disposition",
+      `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`,
+    )
+    .header("Content-Type", "application/zip")
+    .send(stream);
+}
+

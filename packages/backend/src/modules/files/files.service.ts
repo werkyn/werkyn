@@ -7,8 +7,10 @@ import type {
   CopyFileInput,
 } from "@pm/shared";
 import type { Readable } from "node:stream";
+import { PassThrough } from "node:stream";
 import crypto from "node:crypto";
 import path from "node:path";
+import archiver from "archiver";
 import { env } from "../../config/env.js";
 import { ForbiddenError, NotFoundError } from "../../utils/errors.js";
 import { assertFileAccess, resolveTeamFolderForParent } from "./file-access.js";
@@ -562,4 +564,92 @@ async function getUserTeamFolderIds(
     select: { teamFolderId: true },
   });
   return memberships.map((m) => m.teamFolderId);
+}
+
+// ── Archive & Extract ──────────────────────────────────
+
+interface ArchiveEntry {
+  name: string;
+  storagePath: string;
+}
+
+async function collectFolderEntries(
+  prisma: PrismaClient,
+  storage: StorageProvider,
+  parentId: string,
+  prefix: string,
+): Promise<ArchiveEntry[]> {
+  const children = await prisma.file.findMany({
+    where: { parentId, trashedAt: null },
+    select: { id: true, name: true, isFolder: true, storagePath: true },
+  });
+
+  const entries: ArchiveEntry[] = [];
+  for (const child of children) {
+    if (child.isFolder) {
+      const nested = await collectFolderEntries(
+        prisma,
+        storage,
+        child.id,
+        `${prefix}${child.name}/`,
+      );
+      entries.push(...nested);
+    } else if (child.storagePath) {
+      entries.push({ name: `${prefix}${child.name}`, storagePath: child.storagePath });
+    }
+  }
+  return entries;
+}
+
+export async function archiveFiles(
+  prisma: PrismaClient,
+  storage: StorageProvider,
+  workspaceId: string,
+  fileIds: string[],
+  ctx: AccessContext,
+): Promise<{ stream: PassThrough; archiveName: string }> {
+  // Validate all files belong to workspace and are not trashed
+  const files = await prisma.file.findMany({
+    where: { id: { in: fileIds }, workspaceId, trashedAt: null },
+    select: { id: true, name: true, isFolder: true, storagePath: true },
+  });
+
+  if (files.length === 0) throw new NotFoundError("No files found");
+
+  // Assert read access on each file
+  for (const file of files) {
+    await assertFileAccess(prisma, file.id, ctx);
+  }
+
+  // Collect all entries, expanding folders recursively
+  const entries: ArchiveEntry[] = [];
+  for (const file of files) {
+    if (file.isFolder) {
+      const nested = await collectFolderEntries(prisma, storage, file.id, `${file.name}/`);
+      entries.push(...nested);
+    } else if (file.storagePath) {
+      entries.push({ name: file.name, storagePath: file.storagePath });
+    }
+  }
+
+  // Archive name
+  const archiveName =
+    files.length === 1 && files[0].isFolder
+      ? `${files[0].name}.zip`
+      : "files.zip";
+
+  const passthrough = new PassThrough();
+  const archive = archiver("zip", { zlib: { level: 6 } });
+
+  archive.on("error", (err) => passthrough.destroy(err));
+  archive.pipe(passthrough);
+
+  for (const entry of entries) {
+    const fileStream = storage.readStream(entry.storagePath);
+    archive.append(fileStream, { name: entry.name });
+  }
+
+  archive.finalize();
+
+  return { stream: passthrough, archiveName };
 }
