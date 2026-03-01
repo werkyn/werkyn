@@ -21,6 +21,7 @@ export interface DriveFile {
   ownerId: string | null;
   teamFolderId: string | null;
   trashedAt: string | null;
+  starred?: boolean;
   createdAt: string;
   updatedAt: string;
   uploadedBy: {
@@ -84,18 +85,23 @@ interface FilesResponse {
 
 // ── File Queries ──
 
+export type SortBy = "name" | "size" | "updatedAt" | "uploadedBy";
+export type SortOrder = "asc" | "desc";
+
 export function useFiles(
   wid: string,
   parentId?: string | null,
   teamFolderId?: string,
   search?: string,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; sortBy?: SortBy; sortOrder?: SortOrder },
 ) {
   const isSearching = !!search;
+  const sortBy = options?.sortBy ?? "name";
+  const sortOrder = options?.sortOrder ?? "asc";
   return useInfiniteQuery({
     queryKey: isSearching
-      ? queryKeys.fileSearch(wid, search)
-      : queryKeys.files(wid, parentId, teamFolderId),
+      ? queryKeys.fileSearch(wid, search, sortBy, sortOrder)
+      : queryKeys.files(wid, parentId, teamFolderId, sortBy, sortOrder),
     queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
       const params = new URLSearchParams();
       if (isSearching) {
@@ -106,6 +112,8 @@ export function useFiles(
       }
       if (pageParam) params.set("cursor", pageParam);
       params.set("limit", "50");
+      params.set("sortBy", sortBy);
+      params.set("sortOrder", sortOrder);
 
       const qs = params.toString();
       return api
@@ -187,7 +195,7 @@ export function useCreateFolder(wid: string, parentId?: string | null, teamFolde
         })
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.files(wid, parentId, teamFolderId) });
+      qc.invalidateQueries({ queryKey: ["files"] });
     },
   });
 }
@@ -248,12 +256,12 @@ export function uploadSingleFile(
   return { promise, abort: () => xhrRef?.abort() };
 }
 
-export function useInvalidateFiles(wid: string, parentId?: string | null, teamFolderId?: string) {
+export function useInvalidateFiles(wid: string) {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: queryKeys.files(wid, parentId, teamFolderId) });
+  return () => qc.invalidateQueries({ queryKey: ["files"] });
 }
 
-export function useRenameFile(wid: string, parentId?: string | null, teamFolderId?: string) {
+export function useRenameFile(wid: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ fileId, name }: { fileId: string; name: string }) =>
@@ -261,7 +269,59 @@ export function useRenameFile(wid: string, parentId?: string | null, teamFolderI
         .patch(`workspaces/${wid}/files/${fileId}`, { json: { name } })
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.files(wid, parentId, teamFolderId) });
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useStarredFiles(wid: string) {
+  return useQuery({
+    queryKey: queryKeys.starredFiles(wid),
+    queryFn: () =>
+      api
+        .get(`workspaces/${wid}/files/starred`)
+        .json<{ data: DriveFile[] }>(),
+    enabled: !!wid,
+  });
+}
+
+export function useStarFile(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: string) =>
+      api.post(`workspaces/${wid}/files/${fileId}/star`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useUnstarFile(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: string) =>
+      api.delete(`workspaces/${wid}/files/${fileId}/star`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+}
+
+export function useCopyFile(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      fileId,
+      parentId,
+    }: {
+      fileId: string;
+      parentId: string | null;
+    }) =>
+      api
+        .post(`workspaces/${wid}/files/${fileId}/copy`, { json: { parentId } })
+        .json<{ data: DriveFile }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["files"] });
     },
   });
 }
@@ -287,7 +347,7 @@ export function useMoveFile(wid: string) {
   });
 }
 
-export function useTrashFile(wid: string, parentId?: string | null, teamFolderId?: string) {
+export function useTrashFile(wid: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (fileId: string) =>
@@ -297,8 +357,7 @@ export function useTrashFile(wid: string, parentId?: string | null, teamFolderId
         })
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.files(wid, parentId, teamFolderId) });
-      qc.invalidateQueries({ queryKey: queryKeys.trashedFiles(wid) });
+      qc.invalidateQueries({ queryKey: ["files"] });
     },
   });
 }

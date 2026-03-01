@@ -7,7 +7,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useFiles, useMoveFile, type DriveFile } from "../api";
+import { useFiles, useMoveFile, useCopyFile, type DriveFile } from "../api";
 import { Folder, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -17,17 +17,22 @@ interface MoveDialogProps {
   fileIds?: string[];
   onClose: () => void;
   workspaceId: string;
+  mode?: "move" | "copy";
 }
 
-export function MoveDialog({ file, fileIds, onClose, workspaceId }: MoveDialogProps) {
+export function MoveDialog({ file, fileIds, onClose, workspaceId, mode = "move" }: MoveDialogProps) {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
   );
-  const [isMovingBatch, setIsMovingBatch] = useState(false);
+  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const moveFile = useMoveFile(workspaceId);
+  const copyFile = useCopyFile(workspaceId);
 
-  const isBatch = fileIds && fileIds.length > 0;
+  const isCopy = mode === "copy";
+  const mutation = isCopy ? copyFile : moveFile;
+
+  const isBatch = !isCopy && fileIds && fileIds.length > 0;
   const isOpen = isBatch ? fileIds.length > 0 : !!file;
 
   // Reset state when dialog opens
@@ -56,9 +61,9 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId }: MoveDialogPr
     });
   };
 
-  const handleMove = async () => {
-    if (isBatch) {
-      setIsMovingBatch(true);
+  const handleAction = async () => {
+    if (isBatch && fileIds) {
+      setIsProcessingBatch(true);
       const results = await Promise.allSettled(
         fileIds.map(
           (fid) =>
@@ -73,7 +78,7 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId }: MoveDialogPr
             }),
         ),
       );
-      setIsMovingBatch(false);
+      setIsProcessingBatch(false);
       const failed = results.filter((r) => r.status === "rejected").length;
       if (failed === 0) {
         toast.success(`Moved ${fileIds.length} file${fileIds.length !== 1 ? "s" : ""}`);
@@ -86,24 +91,25 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId }: MoveDialogPr
 
     if (!file) return;
 
-    moveFile.mutate(
+    mutation.mutate(
       { fileId: file.id, parentId: selectedFolder },
       {
         onSuccess: () => {
-          toast.success("Moved successfully");
+          toast.success(isCopy ? "Copied successfully" : "Moved successfully");
           onClose();
         },
         onError: (err) => {
-          toast.error(err.message || "Failed to move");
+          toast.error(err.message || `Failed to ${isCopy ? "copy" : "move"}`);
         },
       },
     );
   };
 
   const rootLabel = !isBatch && fileTeamFolderId ? "Team Folder (root)" : "My Files (root)";
+  const actionVerb = isCopy ? "Copy" : "Move";
   const title = isBatch
-    ? `Move ${fileIds.length} file${fileIds.length !== 1 ? "s" : ""}`
-    : `Move "${file?.name}"`;
+    ? `Move ${fileIds!.length} file${fileIds!.length !== 1 ? "s" : ""}`
+    : `${actionVerb} "${file?.name}"`;
 
   return (
     <Dialog open={isOpen} onOpenChange={(v) => !v && onClose()}>
@@ -144,8 +150,10 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId }: MoveDialogPr
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleMove} disabled={moveFile.isPending || isMovingBatch}>
-            {moveFile.isPending || isMovingBatch ? "Moving..." : "Move here"}
+          <Button onClick={handleAction} disabled={mutation.isPending || isProcessingBatch}>
+            {mutation.isPending || isProcessingBatch
+              ? `${isCopy ? "Copying" : "Moving"}...`
+              : `${actionVerb} here`}
           </Button>
         </DialogFooter>
       </DialogContent>

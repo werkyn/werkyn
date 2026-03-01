@@ -2,7 +2,15 @@ import type { DriveFile } from "../api";
 import { useFileDragDrop } from "../hooks/use-file-drag-drop";
 import { getFileIcon, formatFileSize } from "@/lib/file-icons";
 import { timeAgo } from "@/lib/time-ago";
-import { FileActionMenu } from "./file-action-menu";
+import { FileActionMenu, FileMenuItems } from "./file-action-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FileRowProps {
@@ -18,6 +26,8 @@ interface FileRowProps {
   onRename: (file: DriveFile) => void;
   onMove: (file: DriveFile) => void;
   onTrash: (file: DriveFile) => void;
+  onCopy?: (file: DriveFile) => void;
+  onStar?: (file: DriveFile) => void;
 }
 
 export function FileRow({
@@ -33,11 +43,13 @@ export function FileRow({
   onRename,
   onMove,
   onTrash,
+  onCopy,
+  onStar,
 }: FileRowProps) {
   const Icon = getFileIcon(file.mimeType, file.isFolder);
   const { attributes, listeners, setNodeRef, isDragging, isOver } = useFileDragDrop(file, canEdit);
 
-  return (
+  const row = (
     <tr
       ref={setNodeRef}
       {...(canEdit ? { ...listeners, ...attributes } : {})}
@@ -99,6 +111,23 @@ export function FileRow({
             <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
           )}
           <span className="truncate text-sm">{file.name}</span>
+          {onStar && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onStar(file);
+              }}
+              className={cn(
+                "shrink-0 rounded p-0.5 transition-opacity",
+                file.starred
+                  ? "opacity-100 text-yellow-500"
+                  : "opacity-0 group-hover/row:opacity-100 text-muted-foreground hover:text-yellow-500",
+              )}
+              title={file.starred ? "Unstar" : "Star"}
+            >
+              <Star className={cn("h-3.5 w-3.5", file.starred && "fill-current")} />
+            </button>
+          )}
         </div>
       </td>
       <td className="px-3 py-2 text-sm text-muted-foreground whitespace-nowrap">
@@ -117,10 +146,33 @@ export function FileRow({
             onDownload={() => onDownload(file)}
             onRename={() => onRename(file)}
             onMove={() => onMove(file)}
+            onCopy={onCopy ? () => onCopy(file) : undefined}
+            onStar={onStar ? () => onStar(file) : undefined}
             onTrash={() => onTrash(file)}
           />
         )}
       </td>
     </tr>
+  );
+
+  if (!canEdit) return row;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+      <ContextMenuContent>
+        <FileMenuItems
+          file={file}
+          ItemComponent={ContextMenuItem}
+          SeparatorComponent={ContextMenuSeparator}
+          onDownload={() => onDownload(file)}
+          onRename={() => onRename(file)}
+          onMove={() => onMove(file)}
+          onCopy={onCopy ? () => onCopy(file) : undefined}
+          onStar={onStar ? () => onStar(file) : undefined}
+          onTrash={() => onTrash(file)}
+        />
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

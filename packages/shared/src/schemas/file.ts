@@ -28,8 +28,15 @@ export const FileQuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   trashed: z.coerce.boolean().optional().default(false),
+  sortBy: z.enum(["name", "size", "updatedAt", "uploadedBy"]).optional().default("name"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("asc"),
 });
 export type FileQueryInput = z.infer<typeof FileQuerySchema>;
+
+export const CopyFileSchema = z.object({
+  parentId: z.string().nullable(),
+});
+export type CopyFileInput = z.infer<typeof CopyFileSchema>;
 
 export const UploadFileSchema = z.object({
   parentId: z.string().optional(),

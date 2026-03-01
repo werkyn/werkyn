@@ -4,6 +4,7 @@ import type {
   CreateFolderInput,
   UpdateFileInput,
   FileQueryInput,
+  CopyFileInput,
 } from "@pm/shared";
 import { ValidationError } from "../../utils/errors.js";
 
@@ -177,6 +178,72 @@ export async function getFileAttachmentCountHandler(
   );
 
   return reply.send({ data: result });
+}
+
+export async function listStarredFilesHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string };
+
+  const files = await filesService.listStarredFiles(
+    request.server.prisma,
+    params.wid,
+    getAccessCtx(request),
+  );
+
+  return reply.send({ data: files });
+}
+
+export async function starFileHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string; fid: string };
+
+  await filesService.starFile(
+    request.server.prisma,
+    params.wid,
+    params.fid,
+    getAccessCtx(request),
+  );
+
+  return reply.status(204).send();
+}
+
+export async function unstarFileHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string; fid: string };
+
+  await filesService.unstarFile(
+    request.server.prisma,
+    params.wid,
+    params.fid,
+    getAccessCtx(request),
+  );
+
+  return reply.status(204).send();
+}
+
+export async function copyFileHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string; fid: string };
+  const body = request.body as CopyFileInput;
+
+  const file = await filesService.copyFile(
+    request.server.prisma,
+    request.server.storage,
+    params.wid,
+    params.fid,
+    body,
+    getAccessCtx(request),
+  );
+
+  return reply.status(201).send({ data: file });
 }
 
 export async function deleteFileHandler(

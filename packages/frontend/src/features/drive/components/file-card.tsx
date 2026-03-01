@@ -1,7 +1,15 @@
 import type { DriveFile } from "../api";
 import { useFileDragDrop } from "../hooks/use-file-drag-drop";
 import { getFileIcon, formatFileSize } from "@/lib/file-icons";
-import { FileActionMenu } from "./file-action-menu";
+import { FileActionMenu, FileMenuItems } from "./file-action-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FileCardProps {
@@ -17,6 +25,8 @@ interface FileCardProps {
   onRename: (file: DriveFile) => void;
   onMove: (file: DriveFile) => void;
   onTrash: (file: DriveFile) => void;
+  onCopy?: (file: DriveFile) => void;
+  onStar?: (file: DriveFile) => void;
 }
 
 export function FileCard({
@@ -32,11 +42,13 @@ export function FileCard({
   onRename,
   onMove,
   onTrash,
+  onCopy,
+  onStar,
 }: FileCardProps) {
   const Icon = getFileIcon(file.mimeType, file.isFolder);
   const { attributes, listeners, setNodeRef, isDragging, isOver } = useFileDragDrop(file, canEdit);
 
-  return (
+  const card = (
     <div
       ref={setNodeRef}
       {...(canEdit ? { ...listeners, ...attributes } : {})}
@@ -67,9 +79,30 @@ export function FileCard({
             onDownload={() => onDownload(file)}
             onRename={() => onRename(file)}
             onMove={() => onMove(file)}
+            onCopy={onCopy ? () => onCopy(file) : undefined}
+            onStar={onStar ? () => onStar(file) : undefined}
             onTrash={() => onTrash(file)}
           />
         </div>
+      )}
+
+      {/* Star icon */}
+      {onStar && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onStar(file);
+          }}
+          className={cn(
+            "absolute left-1 top-1 rounded p-0.5 transition-opacity",
+            file.starred
+              ? "opacity-100 text-yellow-500"
+              : "opacity-0 group-hover/card:opacity-100 text-muted-foreground hover:text-yellow-500",
+          )}
+          title={file.starred ? "Unstar" : "Star"}
+        >
+          <Star className={cn("h-3.5 w-3.5", file.starred && "fill-current")} />
+        </button>
       )}
 
       {/* Icon with hover-reveal checkbox overlay */}
@@ -106,5 +139,26 @@ export function FileCard({
         </span>
       )}
     </div>
+  );
+
+  if (!canEdit) return card;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
+      <ContextMenuContent>
+        <FileMenuItems
+          file={file}
+          ItemComponent={ContextMenuItem}
+          SeparatorComponent={ContextMenuSeparator}
+          onDownload={() => onDownload(file)}
+          onRename={() => onRename(file)}
+          onMove={() => onMove(file)}
+          onCopy={onCopy ? () => onCopy(file) : undefined}
+          onStar={onStar ? () => onStar(file) : undefined}
+          onTrash={() => onTrash(file)}
+        />
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

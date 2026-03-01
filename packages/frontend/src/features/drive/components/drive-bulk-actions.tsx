@@ -24,7 +24,7 @@ export function DriveBulkActions({
   teamFolderId,
 }: DriveBulkActionsProps) {
   const downloadFile = useDownloadFile(workspaceId);
-  const trashFile = useTrashFile(workspaceId, parentId, teamFolderId);
+  const trashFile = useTrashFile(workspaceId);
   const [showTrashConfirm, setShowTrashConfirm] = useState(false);
   const [isTrashingBatch, setIsTrashingBatch] = useState(false);
 

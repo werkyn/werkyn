@@ -52,6 +52,7 @@ model User {
   chatMemberships         ChatChannelMember[]
   chatMessages            ChatMessage[]
   chatReactions           ChatReaction[]
+  starredFiles            StarredFile[]
 }
 
 model RefreshToken {
@@ -627,13 +628,27 @@ model File {
   owner       User?       @relation("OwnedFiles", fields: [ownerId], references: [id], onDelete: SetNull)
   teamFolder  TeamFolder? @relation("TeamFolderFiles", fields: [teamFolderId], references: [id], onDelete: SetNull)
   asTeamFolder TeamFolder? @relation("TeamFolderRoot")
-  attachments Attachment[]
+  attachments  Attachment[]
+  starredBy    StarredFile[]
 
   @@index([workspaceId, parentId])
   @@index([workspaceId, trashedAt])
   @@index([uploadedById])
   @@index([ownerId])
   @@index([teamFolderId])
+}
+
+model StarredFile {
+  id        String   @id @default(cuid())
+  userId    String
+  fileId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fileId])
+  @@index([userId])
 }
 
 // ─── Attachments ───────────────────────────────────────

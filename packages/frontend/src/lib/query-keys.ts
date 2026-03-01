@@ -24,10 +24,12 @@ export const queryKeys = {
   notifications: ["notifications"] as const,
   notificationUnreadCount: ["notifications", "unread-count"] as const,
   notificationPreferences: ["notifications", "preferences"] as const,
-  files: (wid: string, parentId?: string | null, teamFolderId?: string) =>
-    ["files", { wid, parentId: parentId ?? null, teamFolderId: teamFolderId ?? null }] as const,
-  fileSearch: (wid: string, search: string) =>
-    ["files", { wid, search }] as const,
+  files: (wid: string, parentId?: string | null, teamFolderId?: string, sortBy?: string, sortOrder?: string) =>
+    ["files", { wid, parentId: parentId ?? null, teamFolderId: teamFolderId ?? null, sortBy: sortBy ?? "name", sortOrder: sortOrder ?? "asc" }] as const,
+  fileSearch: (wid: string, search: string, sortBy?: string, sortOrder?: string) =>
+    ["files", { wid, search, sortBy: sortBy ?? "name", sortOrder: sortOrder ?? "asc" }] as const,
+  starredFiles: (wid: string) =>
+    ["files", { wid, starred: true }] as const,
   trashedFiles: (wid: string) =>
     ["files", { wid, trashed: true }] as const,
   fileBreadcrumbs: (wid: string, fid: string) =>

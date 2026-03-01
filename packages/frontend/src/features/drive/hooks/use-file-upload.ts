@@ -2,7 +2,6 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { uploadSingleFile, type DriveFile } from "../api";
 import type { UploadItem } from "../components/upload-progress";
-import { queryKeys } from "@/lib/query-keys";
 import { toast } from "sonner";
 
 interface UseFileUploadOptions {
@@ -151,11 +150,9 @@ export function useFileUpload({
           Array.from({ length: Math.min(MAX_CONCURRENT, fileList.length) }, () => runNext()),
         );
 
-        // Invalidate the folder where files were actually uploaded, not
-        // wherever the user may have navigated to since.
-        qc.invalidateQueries({
-          queryKey: queryKeys.files(workspaceId, uploadParentId, uploadTeamFolderId),
-        });
+        // Broad invalidation: sort params in the key mean we can't target
+        // a specific sorted query, so invalidate all file queries.
+        qc.invalidateQueries({ queryKey: ["files"] });
 
         if (mountedRef.current) {
           onAllCompleteRef.current?.(completed);

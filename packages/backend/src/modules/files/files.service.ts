@@ -4,6 +4,7 @@ import type {
   CreateFolderInput,
   UpdateFileInput,
   FileQueryInput,
+  CopyFileInput,
 } from "@pm/shared";
 import type { Readable } from "node:stream";
 import crypto from "node:crypto";
@@ -124,7 +125,7 @@ export async function listFiles(
   query: FileQueryInput,
   ctx: AccessContext,
 ) {
-  const { parentId, teamFolderId, search, cursor, limit, trashed } = query;
+  const { parentId, teamFolderId, search, cursor, limit, trashed, sortBy, sortOrder } = query;
 
   const where: Record<string, unknown> = {
     workspaceId,
@@ -169,9 +170,16 @@ export async function listFiles(
     }
   }
 
+  const orderBy: Record<string, unknown>[] = [{ isFolder: "desc" }];
+  if (sortBy === "uploadedBy") {
+    orderBy.push({ uploadedBy: { displayName: sortOrder } });
+  } else {
+    orderBy.push({ [sortBy]: sortOrder });
+  }
+
   const files = await prisma.file.findMany({
     where,
-    orderBy: [{ isFolder: "desc" }, { name: "asc" }],
+    orderBy,
     take: limit + 1,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     include: {
@@ -182,7 +190,22 @@ export async function listFiles(
   });
 
   const hasMore = files.length > limit;
-  const data = hasMore ? files.slice(0, limit) : files;
+  const sliced = hasMore ? files.slice(0, limit) : files;
+
+  // Batch-query starred status for the current user
+  const fileIds = sliced.map((f) => f.id);
+  const starredSet = new Set(
+    fileIds.length > 0
+      ? (
+          await prisma.starredFile.findMany({
+            where: { userId: ctx.userId, fileId: { in: fileIds } },
+            select: { fileId: true },
+          })
+        ).map((s) => s.fileId)
+      : [],
+  );
+
+  const data = sliced.map((f) => ({ ...f, starred: starredSet.has(f.id) }));
 
   return {
     data,
@@ -363,6 +386,150 @@ export async function getFileAttachmentCount(
   });
 
   return { count };
+}
+
+export async function starFile(
+  prisma: PrismaClient,
+  workspaceId: string,
+  fileId: string,
+  ctx: AccessContext,
+) {
+  const file = await prisma.file.findFirst({
+    where: { id: fileId, workspaceId },
+  });
+  if (!file) throw new NotFoundError("File not found");
+
+  await assertFileAccess(prisma, fileId, ctx);
+
+  await prisma.starredFile.upsert({
+    where: { userId_fileId: { userId: ctx.userId, fileId } },
+    create: { userId: ctx.userId, fileId },
+    update: {},
+  });
+}
+
+export async function unstarFile(
+  prisma: PrismaClient,
+  workspaceId: string,
+  fileId: string,
+  ctx: AccessContext,
+) {
+  const file = await prisma.file.findFirst({
+    where: { id: fileId, workspaceId },
+  });
+  if (!file) throw new NotFoundError("File not found");
+
+  await prisma.starredFile.deleteMany({
+    where: { userId: ctx.userId, fileId },
+  });
+}
+
+export async function listStarredFiles(
+  prisma: PrismaClient,
+  workspaceId: string,
+  ctx: AccessContext,
+) {
+  const starred = await prisma.starredFile.findMany({
+    where: {
+      userId: ctx.userId,
+      file: { workspaceId, trashedAt: null },
+    },
+    include: {
+      file: {
+        include: {
+          uploadedBy: {
+            select: { id: true, displayName: true, avatarUrl: true },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return starred.map((s) => ({ ...s.file, starred: true }));
+}
+
+export async function copyFile(
+  prisma: PrismaClient,
+  storage: StorageProvider,
+  workspaceId: string,
+  fileId: string,
+  input: CopyFileInput,
+  ctx: AccessContext,
+) {
+  const source = await prisma.file.findFirst({
+    where: { id: fileId, workspaceId, isFolder: false },
+  });
+
+  if (!source || !source.storagePath) {
+    throw new NotFoundError("File not found");
+  }
+
+  // Assert read access on source
+  await assertFileAccess(prisma, fileId, ctx);
+
+  // Assert write access on destination
+  if (input.parentId) {
+    await assertFileAccess(prisma, input.parentId, ctx, true);
+  }
+
+  // Resolve team folder context
+  const sourceTeamFolderId = source.teamFolderId;
+  const destTeamFolderId = input.parentId
+    ? await resolveTeamFolderForParent(prisma, input.parentId)
+    : null;
+
+  // Prevent cross-scope copies (personal <-> team)
+  const sourceIsPersonal = !sourceTeamFolderId;
+  const destIsPersonal = !destTeamFolderId;
+  if (sourceIsPersonal !== destIsPersonal) {
+    throw new ForbiddenError(
+      "Cannot copy files between personal drive and team folders",
+    );
+  }
+
+  const ext = path.extname(source.name) || "";
+  const baseName = source.name.slice(0, source.name.length - ext.length);
+  const copyName = `${baseName} (copy)${ext}`;
+  const newFileId = crypto.randomUUID();
+
+  const scopeId = destTeamFolderId
+    ? `groupfolders/${destTeamFolderId}`
+    : ctx.userId;
+
+  // Copy storage
+  const sourceStream = storage.readStream(source.storagePath);
+  const { storagePath, size } = await storage.saveStream(
+    "files",
+    scopeId,
+    newFileId,
+    ext,
+    sourceStream,
+    { maxSize: env.MAX_FILE_SIZE },
+  );
+
+  // Create DB record — clean up on failure
+  try {
+    const file = await prisma.file.create({
+      data: {
+        workspaceId,
+        parentId: input.parentId,
+        name: copyName,
+        mimeType: source.mimeType,
+        size,
+        storagePath,
+        isFolder: false,
+        uploadedById: ctx.userId,
+        ownerId: destTeamFolderId ? null : ctx.userId,
+        teamFolderId: destTeamFolderId,
+      },
+    });
+
+    return file;
+  } catch (err) {
+    await storage.delete(storagePath);
+    throw err;
+  }
 }
 
 async function collectDescendantFiles(

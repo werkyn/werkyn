@@ -1,7 +1,14 @@
-import type { DriveFile } from "../api";
+import type { DriveFile, SortBy, SortOrder } from "../api";
 import { useInfiniteScroll } from "../hooks/use-infinite-scroll";
 import { FileCard } from "./file-card";
-import { Loader2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ArrowUpDown, Check, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface FileGridViewProps {
   files: DriveFile[];
@@ -19,7 +26,19 @@ interface FileGridViewProps {
   onRename: (file: DriveFile) => void;
   onMove: (file: DriveFile) => void;
   onTrash: (file: DriveFile) => void;
+  onCopy?: (file: DriveFile) => void;
+  onStar?: (file: DriveFile) => void;
+  sortBy?: SortBy;
+  sortOrder?: SortOrder;
+  onSort?: (column: SortBy) => void;
 }
+
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+  { value: "name", label: "Name" },
+  { value: "size", label: "Size" },
+  { value: "updatedAt", label: "Modified" },
+  { value: "uploadedBy", label: "Uploaded by" },
+];
 
 export function FileGridView({
   files,
@@ -37,6 +56,11 @@ export function FileGridView({
   onRename,
   onMove,
   onTrash,
+  onCopy,
+  onStar,
+  sortBy = "name",
+  sortOrder = "asc",
+  onSort,
 }: FileGridViewProps) {
   const sentinelRef = useInfiniteScroll(hasNextPage, isFetchingNextPage, onLoadMore);
 
@@ -49,8 +73,33 @@ export function FileGridView({
     );
   }
 
+  const activeLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Name";
+
   return (
     <div>
+      <div className="flex items-center justify-end px-4 pb-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
+              <ArrowUpDown className="mr-1 h-3 w-3" />
+              {activeLabel} ({sortOrder === "asc" ? "A-Z" : "Z-A"})
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {SORT_OPTIONS.map((opt) => (
+              <DropdownMenuItem
+                key={opt.value}
+                onClick={() => onSort?.(opt.value)}
+              >
+                {sortBy === opt.value && <Check className="mr-2 h-3 w-3" />}
+                {sortBy !== opt.value && <span className="mr-2 w-3" />}
+                {opt.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 px-4">
         {files.map((file) => (
           <FileCard
@@ -67,6 +116,8 @@ export function FileGridView({
             onRename={onRename}
             onMove={onMove}
             onTrash={onTrash}
+            onCopy={onCopy}
+            onStar={onStar}
           />
         ))}
       </div>
