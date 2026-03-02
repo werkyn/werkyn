@@ -7,8 +7,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useFiles, useMoveFile, useCopyFile, type DriveFile } from "../api";
-import { Folder, ChevronRight, Loader2 } from "lucide-react";
+import { useFiles, useTeamFolders, useMoveFile, useCopyFile, type DriveFile } from "../api";
+import { Folder, ChevronRight, Loader2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -20,14 +20,21 @@ interface MoveDialogProps {
   mode?: "move" | "copy";
 }
 
+interface SelectedTarget {
+  folderId: string | null;
+  teamFolderId?: string | null;
+}
+
 export function MoveDialog({ file, fileIds, onClose, workspaceId, mode = "move" }: MoveDialogProps) {
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [selected, setSelected] = useState<SelectedTarget>({ folderId: null });
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
   );
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const moveFile = useMoveFile(workspaceId);
   const copyFile = useCopyFile(workspaceId);
+  const { data: teamFoldersData } = useTeamFolders(workspaceId);
+  const teamFolders = teamFoldersData?.data ?? [];
 
   const isCopy = mode === "copy";
   const mutation = isCopy ? copyFile : moveFile;
@@ -38,16 +45,13 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId, mode = "move" 
   // Reset state when dialog opens
   useEffect(() => {
     if (file || (fileIds && fileIds.length > 0)) {
-      setSelectedFolder(null);
+      setSelected({ folderId: null });
       setExpandedFolders(new Set());
     }
   }, [file?.id, fileIds?.length]);
 
-  // Scope to same context as the file being moved
-  const fileTeamFolderId = file?.teamFolderId ?? undefined;
-
-  // Load root-level folders (scoped to personal or team folder)
-  const { data: rootData } = useFiles(workspaceId, null, isBatch ? undefined : fileTeamFolderId);
+  // Load root-level personal folders
+  const { data: rootData } = useFiles(workspaceId, null, undefined);
   const rootFolders = (rootData?.pages ?? [])
     .flatMap((p) => p.data)
     .filter((f) => f.isFolder && f.id !== file?.id);
@@ -69,7 +73,11 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId, mode = "move" 
           (fid) =>
             new Promise<void>((resolve, reject) => {
               moveFile.mutate(
-                { fileId: fid, parentId: selectedFolder },
+                {
+                  fileId: fid,
+                  parentId: selected.folderId,
+                  teamFolderId: selected.teamFolderId,
+                },
                 {
                   onSuccess: () => resolve(),
                   onError: (err) => reject(err),
@@ -92,7 +100,11 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId, mode = "move" 
     if (!file) return;
 
     mutation.mutate(
-      { fileId: file.id, parentId: selectedFolder },
+      {
+        fileId: file.id,
+        parentId: selected.folderId,
+        teamFolderId: selected.teamFolderId,
+      },
       {
         onSuccess: () => {
           toast.success(isCopy ? "Copied successfully" : "Moved successfully");
@@ -105,7 +117,9 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId, mode = "move" 
     );
   };
 
-  const rootLabel = !isBatch && fileTeamFolderId ? "Team Folder (root)" : "My Files (root)";
+  const isSelected = (folderId: string | null, teamFolderId?: string | null) =>
+    selected.folderId === folderId && selected.teamFolderId === teamFolderId;
+
   const actionVerb = isCopy ? "Copy" : "Move";
   const title = isBatch
     ? `Move ${fileIds!.length} file${fileIds!.length !== 1 ? "s" : ""}`
@@ -119,15 +133,16 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId, mode = "move" 
         </DialogHeader>
 
         <div className="max-h-64 overflow-y-auto border rounded-md">
+          {/* Personal drive root */}
           <button
-            onClick={() => setSelectedFolder(null)}
+            onClick={() => setSelected({ folderId: null, teamFolderId: null })}
             className={cn(
               "flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors",
-              selectedFolder === null && "bg-accent font-medium",
+              isSelected(null, null) && "bg-accent font-medium",
             )}
           >
             <Folder className="h-4 w-4 text-muted-foreground" />
-            {rootLabel}
+            My Files (root)
           </button>
 
           {rootFolders.map((folder) => (
@@ -135,15 +150,38 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId, mode = "move" 
               key={folder.id}
               folder={folder}
               workspaceId={workspaceId}
-              teamFolderId={fileTeamFolderId}
               excludeId={file?.id}
-              selectedFolder={selectedFolder}
+              selected={selected}
               expandedFolders={expandedFolders}
-              onSelect={setSelectedFolder}
+              onSelect={(folderId) =>
+                setSelected({ folderId, teamFolderId: null })
+              }
               onToggle={toggleExpand}
               depth={1}
             />
           ))}
+
+          {/* Team folders section */}
+          {teamFolders.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-t mt-1 pt-2">
+                <Users className="h-3 w-3" />
+                Team Folders
+              </div>
+              {teamFolders.map((tf) => (
+                <TeamFolderItem
+                  key={tf.id}
+                  teamFolder={tf}
+                  workspaceId={workspaceId}
+                  excludeId={file?.id}
+                  selected={selected}
+                  expandedFolders={expandedFolders}
+                  onSelect={setSelected}
+                  onToggle={toggleExpand}
+                />
+              ))}
+            </>
+          )}
         </div>
 
         <DialogFooter>
@@ -161,12 +199,111 @@ export function MoveDialog({ file, fileIds, onClose, workspaceId, mode = "move" 
   );
 }
 
+function TeamFolderItem({
+  teamFolder,
+  workspaceId,
+  excludeId,
+  selected,
+  expandedFolders,
+  onSelect,
+  onToggle,
+}: {
+  teamFolder: { id: string; folderId: string; name: string };
+  workspaceId: string;
+  excludeId?: string;
+  selected: SelectedTarget;
+  expandedFolders: Set<string>;
+  onSelect: (target: SelectedTarget) => void;
+  onToggle: (id: string) => void;
+}) {
+  const tfKey = `tf-${teamFolder.id}`;
+  const isExpanded = expandedFolders.has(tfKey);
+  const isSelected =
+    selected.folderId === teamFolder.folderId &&
+    selected.teamFolderId === teamFolder.id;
+
+  const { data: childData, isLoading } = useFiles(
+    workspaceId,
+    teamFolder.folderId,
+    teamFolder.id,
+    undefined,
+    { enabled: isExpanded },
+  );
+  const childFolders = isExpanded
+    ? (childData?.pages ?? [])
+        .flatMap((p) => p.data)
+        .filter((f) => f.isFolder && f.id !== excludeId)
+    : [];
+
+  return (
+    <>
+      <div
+        className={cn(
+          "flex items-center gap-1 px-3 py-2 text-sm hover:bg-accent transition-colors cursor-pointer",
+          isSelected && "bg-accent font-medium",
+        )}
+        style={{ paddingLeft: "28px" }}
+        onClick={() =>
+          onSelect({
+            folderId: teamFolder.folderId,
+            teamFolderId: teamFolder.id,
+          })
+        }
+      >
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(tfKey);
+          }}
+          className="shrink-0 p-0.5"
+        >
+          <ChevronRight
+            className={cn(
+              "h-3 w-3 transition-transform",
+              isExpanded && "rotate-90",
+            )}
+          />
+        </button>
+        <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="truncate">{teamFolder.name}</span>
+      </div>
+
+      {isExpanded && isLoading && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground"
+          style={{ paddingLeft: "44px" }}
+        >
+          <Loader2 className="h-3 w-3 animate-spin" />
+        </div>
+      )}
+      {isExpanded &&
+        !isLoading &&
+        childFolders.map((child) => (
+          <FolderItem
+            key={child.id}
+            folder={child}
+            workspaceId={workspaceId}
+            teamFolderId={teamFolder.id}
+            excludeId={excludeId}
+            selected={selected}
+            expandedFolders={expandedFolders}
+            onSelect={(folderId) =>
+              onSelect({ folderId, teamFolderId: teamFolder.id })
+            }
+            onToggle={onToggle}
+            depth={2}
+          />
+        ))}
+    </>
+  );
+}
+
 function FolderItem({
   folder,
   workspaceId,
   teamFolderId,
   excludeId,
-  selectedFolder,
+  selected,
   expandedFolders,
   onSelect,
   onToggle,
@@ -176,13 +313,14 @@ function FolderItem({
   workspaceId: string;
   teamFolderId?: string;
   excludeId?: string;
-  selectedFolder: string | null;
+  selected: SelectedTarget;
   expandedFolders: Set<string>;
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   depth: number;
 }) {
   const isExpanded = expandedFolders.has(folder.id);
+  const isSelected = selected.folderId === folder.id;
   const { data: childData, isLoading } = useFiles(
     workspaceId,
     folder.id,
@@ -201,7 +339,7 @@ function FolderItem({
       <div
         className={cn(
           "flex items-center gap-1 px-3 py-2 text-sm hover:bg-accent transition-colors cursor-pointer",
-          selectedFolder === folder.id && "bg-accent font-medium",
+          isSelected && "bg-accent font-medium",
         )}
         style={{ paddingLeft: `${depth * 16 + 12}px` }}
         onClick={() => onSelect(folder.id)}
@@ -241,7 +379,7 @@ function FolderItem({
             workspaceId={workspaceId}
             teamFolderId={teamFolderId}
             excludeId={excludeId}
-            selectedFolder={selectedFolder}
+            selected={selected}
             expandedFolders={expandedFolders}
             onSelect={onSelect}
             onToggle={onToggle}

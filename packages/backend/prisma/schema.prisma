@@ -495,6 +495,7 @@ enum NotificationType {
   COMMENT_MENTION
   CHAT_MENTION
   CHAT_DM_MESSAGE
+  FILE_SHARED
 }
 
 model Notification {
@@ -523,6 +524,7 @@ model NotificationPreference {
   commentMention        Boolean @default(true)
   chatMention           Boolean @default(true)
   chatDmMessage         Boolean @default(true)
+  fileShared            Boolean @default(true)
   dueDateReminderTiming String  @default("1_day_before")
   pushSubscription      Json?
   pushEnabled           Boolean @default(false)
@@ -630,6 +632,7 @@ model File {
   uploadedById String
   ownerId      String?
   teamFolderId String?
+  thumbnailPath String?
   trashedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

@@ -1,8 +1,10 @@
 import type { PrismaClient } from "@prisma/client";
+import type { FastifyInstance } from "fastify";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { NotFoundError, ForbiddenError } from "../../utils/errors.js";
 import { assertFileAccess } from "./file-access.js";
+import { notify } from "../../utils/notify.js";
 
 interface AccessContext {
   userId: string;
@@ -18,6 +20,7 @@ export async function createFileShares(
   userIds: string[],
   sharedById: string,
   ctx: AccessContext,
+  fastify?: FastifyInstance,
 ) {
   // Verify access to all files
   for (const fileId of fileIds) {
@@ -49,7 +52,41 @@ export async function createFileShares(
 
   if (data.length === 0) return { count: 0 };
 
-  return prisma.fileShare.createMany({ data, skipDuplicates: true });
+  const result = await prisma.fileShare.createMany({ data, skipDuplicates: true });
+
+  // Send notifications to recipients
+  if (fastify && result.count > 0) {
+    const sharer = await prisma.user.findUnique({
+      where: { id: sharedById },
+      select: { displayName: true },
+    });
+    const sharerName = sharer?.displayName ?? "Someone";
+
+    // Build notification title
+    let title: string;
+    if (fileIds.length === 1) {
+      const file = await prisma.file.findUnique({
+        where: { id: fileIds[0] },
+        select: { name: true },
+      });
+      title = `${sharerName} shared "${file?.name ?? "a file"}" with you`;
+    } else {
+      title = `${sharerName} shared ${fileIds.length} files with you`;
+    }
+
+    const recipients = userIds.filter((uid) => uid !== sharedById);
+    if (recipients.length > 0) {
+      notify(prisma, fastify, {
+        recipients,
+        type: "FILE_SHARED",
+        title,
+        data: { fileId: fileIds[0], workspaceId },
+        excludeUserId: sharedById,
+      }).catch(() => {});
+    }
+  }
+
+  return result;
 }
 
 export async function removeFileShare(

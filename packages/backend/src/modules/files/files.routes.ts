@@ -8,6 +8,7 @@ import {
   unstarFileHandler,
   getFileHandler,
   downloadFileHandler,
+  downloadThumbnailHandler,
   updateFileHandler,
   getFileBreadcrumbsHandler,
   getFileAttachmentCountHandler,
@@ -97,6 +98,14 @@ export default async function filesRoutes(fastify: FastifyInstance) {
     url: "/workspaces/:wid/files/:fid/download",
     preHandler: [authenticate, authorize("ADMIN", "MEMBER", "VIEWER")],
     handler: downloadFileHandler,
+  });
+
+  // GET /api/workspaces/:wid/files/:fid/thumbnail — Get file thumbnail
+  fastify.route({
+    method: "GET",
+    url: "/workspaces/:wid/files/:fid/thumbnail",
+    preHandler: [authenticate, authorize("ADMIN", "MEMBER", "VIEWER")],
+    handler: downloadThumbnailHandler,
   });
 
   // GET /api/workspaces/:wid/files/:fid/breadcrumbs — Get breadcrumb path

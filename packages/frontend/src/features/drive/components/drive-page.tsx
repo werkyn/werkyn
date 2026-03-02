@@ -52,7 +52,6 @@ import {
   List,
   LayoutGrid,
   Trash2,
-  ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -435,16 +434,7 @@ export function DrivePage({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {trash ? (
-              <>
-                <button
-                  onClick={() => onTrashToggle(false)}
-                  aria-label="Back to Drive"
-                  className="rounded-md p-1 hover:bg-accent transition-colors"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-                <h1 className="text-2xl font-bold">Trash</h1>
-              </>
+              <h1 className="text-2xl font-bold">Trash</h1>
             ) : (
               <>
                 <h1 className="text-2xl font-bold">Drive</h1>

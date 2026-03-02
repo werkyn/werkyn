@@ -31,6 +31,7 @@ export async function createFileSharesHandler(
     body.userIds,
     request.user!.id,
     getAccessCtx(request),
+    request.server,
   );
 
   return reply.status(201).send({ data: result });

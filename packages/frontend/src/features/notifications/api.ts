@@ -26,6 +26,7 @@ export interface NotificationPreference {
   commentMention: boolean;
   chatMention: boolean;
   chatDmMessage: boolean;
+  fileShared: boolean;
   dueDateReminderTiming: string;
   pushEnabled: boolean;
 }

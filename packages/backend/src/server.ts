@@ -3,6 +3,7 @@ import { buildApp } from "./app.js";
 import { cleanupExpiredTokensAndAttempts } from "./modules/auth/auth.service.js";
 import { processDueDateReminders } from "./schedulers/due-date-reminders.js";
 import { processRecurringTasks } from "./schedulers/recurring-tasks.js";
+import { processTrashPurge } from "./schedulers/trash-purge.js";
 import { dexManager } from "./services/dex-manager.js";
 
 async function start() {
@@ -60,6 +61,22 @@ async function start() {
         });
       },
       15 * 60 * 1000,
+    );
+
+    // Run trash purge after 120s delay, then every 24 hours
+    setTimeout(() => {
+      processTrashPurge(app.prisma, app.storage).catch((err) => {
+        app.log.error(err, "Failed to run initial trash purge");
+      });
+    }, 120_000);
+
+    setInterval(
+      () => {
+        processTrashPurge(app.prisma, app.storage).catch((err) => {
+          app.log.error(err, "Failed to run scheduled trash purge");
+        });
+      },
+      24 * 60 * 60 * 1000,
     );
 
     // Start embedded Dex (SSO identity provider)
