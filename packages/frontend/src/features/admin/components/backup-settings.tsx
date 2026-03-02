@@ -255,7 +255,6 @@ function SummaryDisplay({ summary }: { summary: RestoreSummary }) {
     ["Wiki Pages", summary.wikiPages],
     ["Wiki Comments", summary.wikiComments],
     ["Images", summary.images],
-    ["Attachments", summary.attachments],
   ].filter(([, count]) => (count as number) > 0);
 
   return (
@@ -517,7 +516,7 @@ export function BackupSettings({ workspaceId }: BackupSettingsProps) {
               />
               <span className="font-medium">Include files</span>
               <span className="text-muted-foreground">
-                (wiki images & task attachments)
+                (wiki images)
               </span>
             </label>
           </div>

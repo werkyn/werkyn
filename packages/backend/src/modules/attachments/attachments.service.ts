@@ -51,18 +51,12 @@ export async function downloadAttachment(
     );
   }
 
-  const storagePath =
-    attachment.fileId && attachment.file?.storagePath
-      ? attachment.file.storagePath
-      : attachment.storagePath;
-
-  const stream = storage.readStream(storagePath);
+  const stream = storage.readStream(attachment.file!.storagePath!);
   return { stream, attachment };
 }
 
 export async function deleteAttachment(
   prisma: PrismaClient,
-  storage: StorageProvider,
   workspaceId: string,
   attachmentId: string,
 ) {
@@ -75,11 +69,6 @@ export async function deleteAttachment(
   }
 
   await prisma.attachment.delete({ where: { id: attachmentId } });
-
-  // Only delete from storage if it's a direct upload (not a Drive link)
-  if (!attachment.fileId) {
-    await storage.delete(attachment.storagePath);
-  }
 }
 
 export async function linkAttachment(

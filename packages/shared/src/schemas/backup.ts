@@ -248,7 +248,6 @@ export interface RestoreSummary {
   wikiPages: number;
   wikiComments: number;
   images: number;
-  attachments: number;
   userMappings: RestoreUserMapping[];
   warnings: string[];
 }

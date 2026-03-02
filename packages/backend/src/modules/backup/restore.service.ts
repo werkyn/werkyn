@@ -78,14 +78,11 @@ export async function previewRestore(
   let messages = 0;
   let reactions = 0;
 
-  let attachments = 0;
-
   for (const p of backup.projects) {
     statuses += p.statuses.length;
     labels += p.labels.length;
     customFields += p.customFields.length;
     tasks += p.tasks.length;
-    attachments += p.attachments.length;
     for (const t of p.tasks) {
       subtasks += t.subtasks.length;
       comments += t.comments.length;
@@ -125,7 +122,6 @@ export async function previewRestore(
     wikiPages,
     wikiComments,
     images: assets?.size ?? 0,
-    attachments,
     userMappings: userMapper.getMappings().map((m) => ({
       originalEmail: m.originalEmail,
       originalName: m.originalName,
@@ -165,7 +161,6 @@ export async function executeRestore(
     wikiPages: 0,
     wikiComments: 0,
     images: 0,
-    attachments: 0,
   };
   const warnings = [...userMapper.getWarnings()];
 
@@ -175,7 +170,6 @@ export async function executeRestore(
 
   if (assets && assets.size > 0 && storage) {
     for (const [assetPath, buffer] of assets) {
-      // Only re-upload wiki image assets here; attachments are handled separately
       if (!assetPath.startsWith("assets/")) continue;
 
       const filename = path.basename(assetPath);
@@ -395,53 +389,6 @@ export async function executeRestore(
           }
         }
 
-        // Attachments (restore after tasks + comments so entity IDs are mapped)
-        for (const att of pEntry.attachments) {
-          const newEntityId = idMapper.get(att.entityRef);
-          if (!newEntityId) {
-            warnings.push(
-              `Skipped attachment "${att.name}" — entity ref ${att.entityRef} not found`,
-            );
-            continue;
-          }
-
-          const fileBuffer = assets?.get(att.assetPath);
-          if (!fileBuffer || !storage) {
-            warnings.push(
-              `Skipped attachment "${att.name}" — file not found in archive`,
-            );
-            continue;
-          }
-
-          const ext = path.extname(att.name) || ".bin";
-          const fileId = crypto.randomUUID();
-
-          try {
-            const storagePath = await storage.save(
-              "attachments",
-              workspaceId,
-              fileId,
-              ext,
-              fileBuffer,
-            );
-
-            await tx.attachment.create({
-              data: {
-                workspaceId,
-                entityType: att.entityType,
-                entityId: newEntityId,
-                name: att.name,
-                mimeType: att.mimeType,
-                size: att.size,
-                storagePath,
-                uploadedById: userMapper.resolve(att.uploadedByRef ?? ""),
-              },
-            });
-            counts.attachments++;
-          } catch {
-            warnings.push(`Failed to restore attachment "${att.name}"`);
-          }
-        }
       }
 
       // ─── Restore Channels ───────────────────────────────

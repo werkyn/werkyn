@@ -68,11 +68,7 @@ function parseUploadedBackup(
     const assets = new Map<string, Buffer>();
 
     for (const entry of zip.getEntries()) {
-      if (
-        (entry.entryName.startsWith("assets/") ||
-          entry.entryName.startsWith("attachments/")) &&
-        !entry.isDirectory
-      ) {
+      if (entry.entryName.startsWith("assets/") && !entry.isDirectory) {
         assets.set(entry.entryName, entry.getData());
       }
     }
