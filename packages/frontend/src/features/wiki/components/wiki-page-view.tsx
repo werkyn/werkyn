@@ -17,10 +17,11 @@ import type { Block } from "@blocknote/core";
 
 interface WikiPageViewProps {
   pageId: string;
+  workspaceId: string;
   onNavigatePage: (pageId: string) => void;
 }
 
-export function WikiPageView({ pageId, onNavigatePage }: WikiPageViewProps) {
+export function WikiPageView({ pageId, workspaceId, onNavigatePage }: WikiPageViewProps) {
   const { data: pageData, isLoading } = useWikiPage(pageId);
   const { data: breadcrumbsData } = useWikiPageBreadcrumbs(pageId);
   const updatePage = useUpdateWikiPage(pageId);
@@ -218,6 +219,8 @@ export function WikiPageView({ pageId, onNavigatePage }: WikiPageViewProps) {
         key={pageId}
         initialContent={page.content}
         readOnly={readOnly}
+        workspaceId={workspaceId}
+        spaceId={page.spaceId}
         onChange={handleContentChange}
       />
 

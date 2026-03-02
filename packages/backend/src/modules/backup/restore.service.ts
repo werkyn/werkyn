@@ -178,8 +178,8 @@ export async function executeRestore(
 
       try {
         const storagePath = await storage.save(
-          "uploads",
-          adminUserId,
+          `${workspaceId}/uploads`,
+          "wiki/imports",
           fileId,
           ext,
           buffer,

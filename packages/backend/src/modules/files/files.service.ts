@@ -48,7 +48,7 @@ export async function uploadFileStream(
 
   // Stream to disk with size enforcement
   const { storagePath, size } = await storage.saveStream(
-    "files",
+    `${workspaceId}/files`,
     scopeId,
     fileId,
     ext,
@@ -502,7 +502,7 @@ export async function copyFile(
   // Copy storage
   const sourceStream = storage.readStream(source.storagePath);
   const { storagePath, size } = await storage.saveStream(
-    "files",
+    `${workspaceId}/files`,
     scopeId,
     newFileId,
     ext,

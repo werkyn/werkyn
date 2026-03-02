@@ -79,6 +79,7 @@ function WikiRoute() {
     return (
       <WikiPageView
         pageId={search.pageId}
+        workspaceId={workspace.id}
         onNavigatePage={(pgid) => navigateToPage(pgid)}
       />
     );
