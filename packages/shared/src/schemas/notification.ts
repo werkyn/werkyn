@@ -31,6 +31,7 @@ export const UpdateNotificationPreferenceSchema = z.object({
   commentMention: z.boolean().optional(),
   chatMention: z.boolean().optional(),
   chatDmMessage: z.boolean().optional(),
+  fileShared: z.boolean().optional(),
   dueDateReminderTiming: DueDateReminderTimingEnum.optional(),
 });
 export type UpdateNotificationPreferenceInput = z.infer<typeof UpdateNotificationPreferenceSchema>;

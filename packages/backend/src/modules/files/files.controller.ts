@@ -131,6 +131,36 @@ export async function downloadFileHandler(
     .send(stream);
 }
 
+export async function downloadThumbnailHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string; fid: string };
+
+  const file = await request.server.prisma.file.findFirst({
+    where: { id: params.fid, workspaceId: params.wid },
+    select: { id: true, thumbnailPath: true, teamFolderId: true, ownerId: true },
+  });
+
+  if (!file || !file.thumbnailPath) {
+    return reply.status(404).send({ message: "Thumbnail not found" });
+  }
+
+  await filesService.getFile(
+    request.server.prisma,
+    params.wid,
+    params.fid,
+    getAccessCtx(request),
+  );
+
+  const stream = request.server.storage.readStream(file.thumbnailPath);
+
+  return reply
+    .header("Content-Type", "image/webp")
+    .header("Cache-Control", "public, max-age=86400")
+    .send(stream);
+}
+
 export async function updateFileHandler(
   request: FastifyRequest,
   reply: FastifyReply,

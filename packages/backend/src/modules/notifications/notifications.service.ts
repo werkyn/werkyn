@@ -9,6 +9,7 @@ const TYPE_TO_PREF_KEY: Record<NotificationType, string> = {
   COMMENT_MENTION: "commentMention",
   CHAT_MENTION: "chatMention",
   CHAT_DM_MESSAGE: "chatDmMessage",
+  FILE_SHARED: "fileShared",
 };
 
 export async function createNotification(

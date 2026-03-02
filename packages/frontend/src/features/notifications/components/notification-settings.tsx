@@ -101,6 +101,11 @@ export function NotificationSettings() {
       label: "Direct messages",
       description: "When someone sends you a direct message",
     },
+    {
+      key: "fileShared" as const,
+      label: "File shared with you",
+      description: "When someone shares a file with you",
+    },
   ];
 
   return (

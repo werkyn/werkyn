@@ -10,6 +10,7 @@ import type { Readable } from "node:stream";
 import { PassThrough } from "node:stream";
 import crypto from "node:crypto";
 import path from "node:path";
+import sharp from "sharp";
 import archiver from "archiver";
 import { env } from "../../config/env.js";
 import { ForbiddenError, NotFoundError } from "../../utils/errors.js";
@@ -56,6 +57,27 @@ export async function uploadFileStream(
     { maxSize: env.MAX_FILE_SIZE },
   );
 
+  // Generate thumbnail for images (non-SVG)
+  let thumbnailPath: string | null = null;
+  if (mimeType.startsWith("image/") && !mimeType.includes("svg")) {
+    try {
+      const originalBuffer = await storage.read(storagePath);
+      const thumbBuffer = await sharp(originalBuffer)
+        .resize(400, undefined, { withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer();
+      thumbnailPath = await storage.save(
+        `${workspaceId}/files`,
+        scopeId,
+        `${fileId}_thumb`,
+        ".webp",
+        thumbBuffer,
+      );
+    } catch {
+      // Non-blocking: continue without thumbnail
+    }
+  }
+
   // Create DB record — clean up file on failure
   try {
     const file = await prisma.file.create({
@@ -70,12 +92,14 @@ export async function uploadFileStream(
         uploadedById,
         ownerId: isTeamContext ? null : uploadedById,
         teamFolderId: teamFolderId,
+        thumbnailPath,
       },
     });
 
     return file;
   } catch (err) {
     await storage.delete(storagePath);
+    if (thumbnailPath) await storage.delete(thumbnailPath).catch(() => {});
     throw err;
   }
 }
@@ -273,38 +297,66 @@ export async function updateFile(
 
   await assertFileAccess(prisma, fileId, ctx, true);
 
-  // If moving (changing parentId), validate same scope
+  // If moving (changing parentId), handle cross-scope moves
   if (input.parentId !== undefined) {
     const sourceTeamFolderId = existing.teamFolderId;
-    const destTeamFolderId = input.parentId
-      ? await resolveTeamFolderForParent(prisma, input.parentId)
-      : null;
+    const destTeamFolderId = input.teamFolderId !== undefined
+      ? input.teamFolderId
+      : input.parentId
+        ? await resolveTeamFolderForParent(prisma, input.parentId)
+        : null;
 
     // Check access on destination
     if (input.parentId) {
       await assertFileAccess(prisma, input.parentId, ctx, true);
     }
 
-    // Prevent cross-scope moves
-    if (sourceTeamFolderId !== destTeamFolderId) {
-      const sourceIsPersonal = !sourceTeamFolderId && !existing.asTeamFolder;
-      const destIsPersonal = !destTeamFolderId;
+    // Handle cross-scope move: update teamFolderId and ownerId
+    const crossScope = sourceTeamFolderId !== destTeamFolderId;
+    const updateData: Record<string, unknown> = {
+      parentId: input.parentId,
+    };
 
-      if (!(sourceIsPersonal && destIsPersonal)) {
-        throw new ForbiddenError(
-          "Cannot move files between personal drive and team folders",
-        );
+    if (crossScope) {
+      if (destTeamFolderId) {
+        // Moving to team folder
+        updateData.teamFolderId = destTeamFolderId;
+        updateData.ownerId = null;
+      } else {
+        // Moving to personal drive
+        updateData.teamFolderId = null;
+        updateData.ownerId = ctx.userId;
       }
     }
+
+    const file = await prisma.file.update({
+      where: { id: fileId },
+      data: {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...updateData,
+        ...(input.trashedAt !== undefined
+          ? { trashedAt: input.trashedAt }
+          : {}),
+      },
+    });
+
+    // For folders: recursively update all descendants' scope
+    if (crossScope && existing.isFolder) {
+      await updateDescendantsScope(
+        prisma,
+        fileId,
+        destTeamFolderId,
+        destTeamFolderId ? null : ctx.userId,
+      );
+    }
+
+    return file;
   }
 
   const file = await prisma.file.update({
     where: { id: fileId },
     data: {
       ...(input.name !== undefined ? { name: input.name } : {}),
-      ...(input.parentId !== undefined
-        ? { parentId: input.parentId }
-        : {}),
       ...(input.trashedAt !== undefined
         ? { trashedAt: input.trashedAt }
         : {}),
@@ -475,20 +527,12 @@ export async function copyFile(
     await assertFileAccess(prisma, input.parentId, ctx, true);
   }
 
-  // Resolve team folder context
-  const sourceTeamFolderId = source.teamFolderId;
-  const destTeamFolderId = input.parentId
-    ? await resolveTeamFolderForParent(prisma, input.parentId)
-    : null;
-
-  // Prevent cross-scope copies (personal <-> team)
-  const sourceIsPersonal = !sourceTeamFolderId;
-  const destIsPersonal = !destTeamFolderId;
-  if (sourceIsPersonal !== destIsPersonal) {
-    throw new ForbiddenError(
-      "Cannot copy files between personal drive and team folders",
-    );
-  }
+  // Resolve team folder context for destination
+  const destTeamFolderId = input.teamFolderId !== undefined
+    ? input.teamFolderId
+    : input.parentId
+      ? await resolveTeamFolderForParent(prisma, input.parentId)
+      : null;
 
   const ext = path.extname(source.name) || "";
   const baseName = source.name.slice(0, source.name.length - ext.length);
@@ -534,7 +578,29 @@ export async function copyFile(
   }
 }
 
-async function collectDescendantFiles(
+async function updateDescendantsScope(
+  prisma: PrismaClient,
+  parentId: string,
+  teamFolderId: string | null,
+  ownerId: string | null,
+): Promise<void> {
+  const children = await prisma.file.findMany({
+    where: { parentId },
+    select: { id: true, isFolder: true },
+  });
+
+  for (const child of children) {
+    await prisma.file.update({
+      where: { id: child.id },
+      data: { teamFolderId, ownerId },
+    });
+    if (child.isFolder) {
+      await updateDescendantsScope(prisma, child.id, teamFolderId, ownerId);
+    }
+  }
+}
+
+export async function collectDescendantFiles(
   prisma: PrismaClient,
   parentId: string,
 ): Promise<Array<{ id: string; storagePath: string | null }>> {

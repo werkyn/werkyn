@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { DriveFile } from "../api";
+import { useThumbnailUrl } from "../api";
 import { useFileDragDrop } from "../hooks/use-file-drag-drop";
 import { getFileIcon, formatFileSize } from "@/lib/file-icons";
 import { FileActionMenu, FileMenuItems } from "./file-action-menu";
@@ -53,6 +55,8 @@ export function FileCard({
 }: FileCardProps) {
   const Icon = getFileIcon(file.mimeType, file.isFolder);
   const { attributes, listeners, setNodeRef, isDragging, isOver } = useFileDragDrop(file, canEdit);
+  const { data: thumbnailUrl } = useThumbnailUrl(file.workspaceId, file.id, !!file.thumbnailPath);
+  const [thumbError, setThumbError] = useState(false);
 
   const card = (
     <div
@@ -113,9 +117,18 @@ export function FileCard({
         </button>
       )}
 
-      {/* Icon with hover-reveal checkbox overlay */}
+      {/* Icon/thumbnail with hover-reveal checkbox overlay */}
       <div className="relative mb-2">
-        <Icon className="h-12 w-12 text-muted-foreground" />
+        {thumbnailUrl && !thumbError ? (
+          <img
+            src={thumbnailUrl}
+            alt={file.name}
+            className="h-12 w-12 rounded object-cover"
+            onError={() => setThumbError(true)}
+          />
+        ) : (
+          <Icon className="h-12 w-12 text-muted-foreground" />
+        )}
         {selectable && (
           <div
             className={cn(

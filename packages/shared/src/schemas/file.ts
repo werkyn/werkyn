@@ -17,6 +17,7 @@ export const UpdateFileSchema = z.object({
     .max(255, "File name must be 255 characters or less")
     .optional(),
   parentId: z.string().nullable().optional(),
+  teamFolderId: z.string().nullable().optional(),
   trashedAt: z.string().datetime().nullable().optional(),
 });
 export type UpdateFileInput = z.infer<typeof UpdateFileSchema>;
@@ -35,6 +36,7 @@ export type FileQueryInput = z.infer<typeof FileQuerySchema>;
 
 export const CopyFileSchema = z.object({
   parentId: z.string().nullable(),
+  teamFolderId: z.string().nullable().optional(),
 });
 export type CopyFileInput = z.infer<typeof CopyFileSchema>;
 

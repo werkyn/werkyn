@@ -1,4 +1,4 @@
-import { UserPlus, ArrowRightLeft, Clock, MessageSquare, AtSign } from "lucide-react";
+import { UserPlus, ArrowRightLeft, Clock, MessageSquare, AtSign, Share2 } from "lucide-react";
 import type { Notification } from "../api";
 
 const TYPE_ICONS: Record<string, typeof UserPlus> = {
@@ -9,6 +9,7 @@ const TYPE_ICONS: Record<string, typeof UserPlus> = {
   COMMENT_MENTION: AtSign,
   CHAT_MENTION: AtSign,
   CHAT_DM_MESSAGE: MessageSquare,
+  FILE_SHARED: Share2,
 };
 
 function timeAgo(dateStr: string): string {

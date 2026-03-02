@@ -20,6 +20,7 @@ export interface DriveFile {
   uploadedById: string;
   ownerId: string | null;
   teamFolderId: string | null;
+  thumbnailPath: string | null;
   trashedAt: string | null;
   starred?: boolean;
   createdAt: string;
@@ -313,12 +314,16 @@ export function useCopyFile(wid: string) {
     mutationFn: ({
       fileId,
       parentId,
+      teamFolderId,
     }: {
       fileId: string;
       parentId: string | null;
+      teamFolderId?: string | null;
     }) =>
       api
-        .post(`workspaces/${wid}/files/${fileId}/copy`, { json: { parentId } })
+        .post(`workspaces/${wid}/files/${fileId}/copy`, {
+          json: { parentId, ...(teamFolderId !== undefined ? { teamFolderId } : {}) },
+        })
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["files"] });
@@ -332,16 +337,18 @@ export function useMoveFile(wid: string) {
     mutationFn: ({
       fileId,
       parentId,
+      teamFolderId,
     }: {
       fileId: string;
       parentId: string | null;
+      teamFolderId?: string | null;
     }) =>
       api
-        .patch(`workspaces/${wid}/files/${fileId}`, { json: { parentId } })
+        .patch(`workspaces/${wid}/files/${fileId}`, {
+          json: { parentId, ...(teamFolderId !== undefined ? { teamFolderId } : {}) },
+        })
         .json<{ data: DriveFile }>(),
     onSuccess: () => {
-      // Broad invalidation: move affects both source and destination folders,
-      // and we don't track the source folder here.
       qc.invalidateQueries({ queryKey: ["files"] });
     },
   });
@@ -398,6 +405,33 @@ export function useFileAttachmentCount(wid: string, fileId: string | null) {
         .get(`workspaces/${wid}/files/${fileId}/attachments-count`)
         .json<{ data: { count: number } }>(),
     enabled: !!fileId,
+  });
+}
+
+export function useThumbnailUrl(wid: string, fileId: string | null, hasThumbnail?: boolean) {
+  return useQuery({
+    queryKey: ["file-thumbnail", { wid, fileId }],
+    queryFn: async () => {
+      const token = useAuthStore.getState().accessToken;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
+
+      const response = await fetch(
+        `${baseUrl}/workspaces/${wid}/files/${fileId}/thumbnail`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        },
+      );
+
+      if (!response.ok) throw new Error("Thumbnail fetch failed");
+
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
+    },
+    enabled: !!fileId && !!hasThumbnail,
+    staleTime: 10 * 60 * 1000,
   });
 }
 
