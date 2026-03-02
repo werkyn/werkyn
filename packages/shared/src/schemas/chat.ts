@@ -44,3 +44,23 @@ export const ToggleReactionSchema = z.object({
   emoji: z.string().min(1).max(32),
 });
 export type ToggleReactionInput = z.infer<typeof ToggleReactionSchema>;
+
+export const PinMessageSchema = z.object({
+  pinned: z.boolean(),
+});
+export type PinMessageInput = z.infer<typeof PinMessageSchema>;
+
+export const BookmarkMessageSchema = z.object({});
+export type BookmarkMessageInput = z.infer<typeof BookmarkMessageSchema>;
+
+export const ArchiveChannelSchema = z.object({
+  archived: z.boolean(),
+});
+export type ArchiveChannelInput = z.infer<typeof ArchiveChannelSchema>;
+
+export const SearchMessagesSchema = z.object({
+  q: z.string().min(1).max(200),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type SearchMessagesInput = z.infer<typeof SearchMessagesSchema>;

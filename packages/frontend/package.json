@@ -44,6 +44,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.54.2",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.0.1",
     "tippy.js": "^6.3.7",

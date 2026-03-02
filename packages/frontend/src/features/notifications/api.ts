@@ -24,6 +24,8 @@ export interface NotificationPreference {
   taskDueSoon: boolean;
   commentAdded: boolean;
   commentMention: boolean;
+  chatMention: boolean;
+  chatDmMessage: boolean;
   dueDateReminderTiming: string;
   pushEnabled: boolean;
 }

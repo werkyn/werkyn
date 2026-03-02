@@ -24,6 +24,8 @@ export interface ChatChannel {
   description: string | null;
   type: "PUBLIC" | "PRIVATE" | "DM";
   createdById: string;
+  archivedAt: string | null;
+  archivedById: string | null;
   createdAt: string;
   updatedAt: string;
   _count: { members: number };
@@ -60,10 +62,30 @@ export interface ChatMessage {
   parentId: string | null;
   editedAt: string | null;
   deletedAt: string | null;
+  pinnedAt: string | null;
+  pinnedById: string | null;
   createdAt: string;
   user: { id: string; displayName: string; avatarUrl: string | null };
   _count?: { replies: number };
   reactions?: ChatReaction[];
+  channel?: { id: string; name: string | null; type: string };
+}
+
+export interface ChatBookmarkEntry {
+  id: string;
+  userId: string;
+  messageId: string;
+  createdAt: string;
+  message: ChatMessage & { channel: { id: string; name: string | null; type: string } };
+}
+
+export interface PresenceUser {
+  userId: string;
+  status: "online" | "away";
+}
+
+export interface ChatSearchMessage extends ChatMessage {
+  channel: { id: string; name: string | null; type: string };
 }
 
 export interface ChatMember {
@@ -378,5 +400,150 @@ export function useToggleReaction(wid: string, channelId: string) {
       qc.invalidateQueries({ queryKey: queryKeys.chatMessages(channelId) });
       qc.invalidateQueries({ queryKey: ["chat-thread"] });
     },
+  });
+}
+
+// ─── Pin Hooks ────────────────────────────────────────
+
+export function useTogglePin(wid: string, channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { messageId: string; pinned: boolean }) =>
+      api
+        .post(`chat/${wid}/messages/${data.messageId}/pin`, {
+          json: { pinned: data.pinned },
+        })
+        .json<{ data: ChatMessage }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatMessages(channelId) });
+      qc.invalidateQueries({ queryKey: queryKeys.chatPins(channelId) });
+      qc.invalidateQueries({ queryKey: ["chat-thread"] });
+    },
+  });
+}
+
+export function usePinnedMessages(wid: string, channelId: string) {
+  return useQuery({
+    queryKey: queryKeys.chatPins(channelId),
+    queryFn: () =>
+      api
+        .get(`chat/${wid}/channels/${channelId}/pins`)
+        .json<{ data: ChatMessage[] }>(),
+    enabled: !!wid && !!channelId,
+  });
+}
+
+// ─── Bookmark Hooks ───────────────────────────────────
+
+export function useToggleBookmark(wid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (messageId: string) =>
+      api
+        .post(`chat/${wid}/messages/${messageId}/bookmark`)
+        .json<{ data: { action: "added" | "removed" } }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatBookmarks(wid) });
+    },
+  });
+}
+
+export function useBookmarks(wid: string) {
+  return useQuery({
+    queryKey: queryKeys.chatBookmarks(wid),
+    queryFn: () =>
+      api
+        .get(`chat/${wid}/bookmarks`)
+        .json<{ data: ChatBookmarkEntry[]; nextCursor?: string }>(),
+    enabled: !!wid,
+  });
+}
+
+// ─── Thread Subscription Hooks ────────────────────────
+
+export function useThreadSubscription(wid: string, messageId: string) {
+  return useQuery({
+    queryKey: queryKeys.chatThreadSub(messageId),
+    queryFn: () =>
+      api
+        .get(`chat/${wid}/messages/${messageId}/subscription`)
+        .json<{ data: { subscribed: boolean } }>(),
+    enabled: !!wid && !!messageId,
+  });
+}
+
+export function useSubscribeThread(wid: string, messageId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.post(`chat/${wid}/messages/${messageId}/subscription`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatThreadSub(messageId) });
+    },
+  });
+}
+
+export function useUnsubscribeThread(wid: string, messageId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.delete(`chat/${wid}/messages/${messageId}/subscription`).then(() => {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatThreadSub(messageId) });
+    },
+  });
+}
+
+// ─── Archive Hooks ────────────────────────────────────
+
+export function useArchiveChannel(wid: string, channelId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (archived: boolean) =>
+      api
+        .post(`chat/${wid}/channels/${channelId}/archive`, {
+          json: { archived },
+        })
+        .json<{ data: ChatChannel }>(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannels(wid) });
+      qc.invalidateQueries({ queryKey: queryKeys.chatChannel(channelId) });
+    },
+  });
+}
+
+// ─── Search Hooks ─────────────────────────────────────
+
+export function useSearchMessages(
+  wid: string,
+  query: string,
+  channelId?: string,
+) {
+  return useQuery({
+    queryKey: queryKeys.chatSearch(wid, query, channelId),
+    queryFn: () => {
+      const url = channelId
+        ? `chat/${wid}/channels/${channelId}/messages/search`
+        : `chat/${wid}/messages/search`;
+      return api
+        .get(url, { searchParams: { q: query } })
+        .json<{ data: ChatSearchMessage[]; nextCursor?: string }>();
+    },
+    enabled: !!wid && query.length >= 2,
+    staleTime: 10_000,
+  });
+}
+
+// ─── Presence Hooks ───────────────────────────────────
+
+export function usePresence(wid: string) {
+  return useQuery({
+    queryKey: queryKeys.chatPresence(wid),
+    queryFn: () =>
+      api
+        .get(`chat/${wid}/presence`)
+        .json<{ data: PresenceUser[] }>(),
+    enabled: !!wid,
+    refetchInterval: 60_000,
   });
 }

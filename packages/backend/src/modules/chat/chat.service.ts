@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
 import { ForbiddenError, NotFoundError } from "../../utils/errors.js";
 
 // ─── Channels ──────────────────────────────────────────
@@ -293,6 +293,13 @@ export async function sendMessage(
   });
   if (!membership) throw new ForbiddenError("Not a member of this channel");
 
+  // Check if channel is archived
+  const channel = await prisma.chatChannel.findUnique({
+    where: { id: channelId },
+    select: { archivedAt: true },
+  });
+  if (channel?.archivedAt) throw new ForbiddenError("Cannot send messages to an archived channel");
+
   // If replying, verify parent exists in same channel
   if (parentId) {
     const parent = await prisma.chatMessage.findUnique({
@@ -328,6 +335,15 @@ export async function sendMessage(
     where: { id: channelId },
     data: { updatedAt: new Date() },
   });
+
+  // Auto-subscribe to thread if replying
+  if (parentId) {
+    await prisma.chatThreadSubscription.upsert({
+      where: { messageId_userId: { messageId: parentId, userId } },
+      update: {},
+      create: { messageId: parentId, userId },
+    });
+  }
 
   return message;
 }
@@ -557,4 +573,261 @@ export async function toggleReaction(
     data: { messageId, userId, emoji },
   });
   return { action: "added" as const, channelId: message.channelId };
+}
+
+// ─── Mentions ─────────────────────────────────────────
+
+export function parseMentions(content: string): string[] {
+  const regex = /@\[([^\]]+)\]/g;
+  const ids = new Set<string>();
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    ids.add(match[1]);
+  }
+  return Array.from(ids);
+}
+
+// ─── Pins ─────────────────────────────────────────────
+
+export async function togglePin(
+  prisma: PrismaClient,
+  messageId: string,
+  userId: string,
+  role: string,
+  pinned: boolean,
+) {
+  const message = await prisma.chatMessage.findUnique({
+    where: { id: messageId },
+    select: { channelId: true, deletedAt: true, pinnedAt: true },
+  });
+  if (!message) throw new NotFoundError("Message not found");
+  if (message.deletedAt) throw new NotFoundError("Message has been deleted");
+
+  const updated = await prisma.chatMessage.update({
+    where: { id: messageId },
+    data: pinned
+      ? { pinnedAt: new Date(), pinnedById: userId }
+      : { pinnedAt: null, pinnedById: null },
+    include: {
+      user: {
+        select: { id: true, displayName: true, avatarUrl: true },
+      },
+      _count: { select: { replies: true } },
+      reactions: {
+        select: { id: true, emoji: true, userId: true },
+        orderBy: { createdAt: "asc" as const },
+      },
+    },
+  });
+
+  return { message: updated, channelId: message.channelId };
+}
+
+export async function listPinnedMessages(
+  prisma: PrismaClient,
+  channelId: string,
+) {
+  return prisma.chatMessage.findMany({
+    where: { channelId, pinnedAt: { not: null }, deletedAt: null },
+    include: {
+      user: {
+        select: { id: true, displayName: true, avatarUrl: true },
+      },
+      _count: { select: { replies: true } },
+      reactions: {
+        select: { id: true, emoji: true, userId: true },
+        orderBy: { createdAt: "asc" as const },
+      },
+    },
+    orderBy: { pinnedAt: "desc" },
+  });
+}
+
+// ─── Bookmarks ────────────────────────────────────────
+
+export async function toggleBookmark(
+  prisma: PrismaClient,
+  messageId: string,
+  userId: string,
+) {
+  const message = await prisma.chatMessage.findUnique({
+    where: { id: messageId },
+    select: { id: true, deletedAt: true },
+  });
+  if (!message) throw new NotFoundError("Message not found");
+  if (message.deletedAt) throw new NotFoundError("Message has been deleted");
+
+  const existing = await prisma.chatBookmark.findUnique({
+    where: { userId_messageId: { userId, messageId } },
+  });
+
+  if (existing) {
+    await prisma.chatBookmark.delete({ where: { id: existing.id } });
+    return { action: "removed" as const };
+  }
+
+  await prisma.chatBookmark.create({ data: { userId, messageId } });
+  return { action: "added" as const };
+}
+
+export async function listBookmarks(
+  prisma: PrismaClient,
+  userId: string,
+  workspaceId: string,
+  cursor?: string,
+  limit = 20,
+) {
+  const bookmarks = await prisma.chatBookmark.findMany({
+    where: {
+      userId,
+      message: { channel: { workspaceId }, deletedAt: null },
+    },
+    include: {
+      message: {
+        include: {
+          user: {
+            select: { id: true, displayName: true, avatarUrl: true },
+          },
+          channel: {
+            select: { id: true, name: true, type: true },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
+
+  const hasMore = bookmarks.length > limit;
+  if (hasMore) bookmarks.pop();
+
+  return {
+    data: bookmarks,
+    nextCursor: hasMore ? bookmarks[bookmarks.length - 1]?.id : undefined,
+  };
+}
+
+// ─── Thread Subscriptions ─────────────────────────────
+
+export async function getThreadSubscription(
+  prisma: PrismaClient,
+  messageId: string,
+  userId: string,
+) {
+  const sub = await prisma.chatThreadSubscription.findUnique({
+    where: { messageId_userId: { messageId, userId } },
+  });
+  return { subscribed: !!sub };
+}
+
+export async function subscribeThread(
+  prisma: PrismaClient,
+  messageId: string,
+  userId: string,
+) {
+  await prisma.chatThreadSubscription.upsert({
+    where: { messageId_userId: { messageId, userId } },
+    update: {},
+    create: { messageId, userId },
+  });
+}
+
+export async function unsubscribeThread(
+  prisma: PrismaClient,
+  messageId: string,
+  userId: string,
+) {
+  await prisma.chatThreadSubscription.deleteMany({
+    where: { messageId, userId },
+  });
+}
+
+export async function getThreadSubscribers(
+  prisma: PrismaClient,
+  messageId: string,
+) {
+  const subs = await prisma.chatThreadSubscription.findMany({
+    where: { messageId },
+    select: { userId: true },
+  });
+  return subs.map((s) => s.userId);
+}
+
+// ─── Channel Archiving ────────────────────────────────
+
+export async function archiveChannel(
+  prisma: PrismaClient,
+  channelId: string,
+  userId: string,
+  role: string,
+  archived: boolean,
+) {
+  const channel = await prisma.chatChannel.findUnique({
+    where: { id: channelId },
+    select: { createdById: true, type: true },
+  });
+  if (!channel) throw new NotFoundError("Channel not found");
+  if (channel.type === "DM") throw new ForbiddenError("Cannot archive DM channels");
+  if (channel.createdById !== userId && role !== "ADMIN") {
+    throw new ForbiddenError("Only the channel creator or admin can archive");
+  }
+
+  return prisma.chatChannel.update({
+    where: { id: channelId },
+    data: archived
+      ? { archivedAt: new Date(), archivedById: userId }
+      : { archivedAt: null, archivedById: null },
+    include: { _count: { select: { members: true } } },
+  });
+}
+
+// ─── Search ───────────────────────────────────────────
+
+export async function searchMessages(
+  prisma: PrismaClient,
+  workspaceId: string,
+  userId: string,
+  query: string,
+  channelId?: string,
+  cursor?: string,
+  limit = 20,
+) {
+  const where: Prisma.ChatMessageWhereInput = {
+    deletedAt: null,
+    content: { contains: query, mode: "insensitive" },
+  };
+
+  if (channelId) {
+    where.channelId = channelId;
+  } else {
+    // Search across all channels user is a member of
+    where.channel = {
+      workspaceId,
+      members: { some: { userId } },
+    };
+  }
+
+  const messages = await prisma.chatMessage.findMany({
+    where,
+    include: {
+      user: {
+        select: { id: true, displayName: true, avatarUrl: true },
+      },
+      channel: {
+        select: { id: true, name: true, type: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
+
+  const hasMore = messages.length > limit;
+  if (hasMore) messages.pop();
+
+  return {
+    data: messages,
+    nextCursor: hasMore ? messages[messages.length - 1]?.id : undefined,
+  };
 }

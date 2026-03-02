@@ -7,6 +7,8 @@ const TYPE_ICONS: Record<string, typeof UserPlus> = {
   TASK_DUE_SOON: Clock,
   COMMENT_ADDED: MessageSquare,
   COMMENT_MENTION: AtSign,
+  CHAT_MENTION: AtSign,
+  CHAT_DM_MESSAGE: MessageSquare,
 };
 
 function timeAgo(dateStr: string): string {

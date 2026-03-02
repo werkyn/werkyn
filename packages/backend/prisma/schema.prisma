@@ -49,9 +49,13 @@ model User {
   userRates               UserRate[]
   authProviders           AuthProvider[]
   chatChannelsCreated     ChatChannel[]       @relation("chatChannelsCreated")
+  chatChannelsArchived    ChatChannel[]       @relation("archivedChannels")
   chatMemberships         ChatChannelMember[]
   chatMessages            ChatMessage[]
   chatReactions           ChatReaction[]
+  chatPinnedMessages      ChatMessage[]       @relation("pinnedMessages")
+  chatBookmarks           ChatBookmark[]
+  chatThreadSubscriptions ChatThreadSubscription[]
   starredFiles            StarredFile[]
   fileSharesCreated       FileShare[]       @relation("FileSharesCreated")
   fileSharesReceived      FileShare[]       @relation("FileSharesReceived")
@@ -489,6 +493,8 @@ enum NotificationType {
   TASK_DUE_SOON
   COMMENT_ADDED
   COMMENT_MENTION
+  CHAT_MENTION
+  CHAT_DM_MESSAGE
 }
 
 model Notification {
@@ -515,6 +521,8 @@ model NotificationPreference {
   taskDueSoon           Boolean @default(true)
   commentAdded          Boolean @default(true)
   commentMention        Boolean @default(true)
+  chatMention           Boolean @default(true)
+  chatDmMessage         Boolean @default(true)
   dueDateReminderTiming String  @default("1_day_before")
   pushSubscription      Json?
   pushEnabled           Boolean @default(false)
@@ -1001,19 +1009,22 @@ enum ChatChannelType {
 }
 
 model ChatChannel {
-  id          String          @id @default(cuid())
-  workspaceId String
-  name        String?         @db.VarChar(100)
-  description String?         @db.VarChar(500)
-  type        ChatChannelType @default(PUBLIC)
-  createdById String
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id           String          @id @default(cuid())
+  workspaceId  String
+  name         String?         @db.VarChar(100)
+  description  String?         @db.VarChar(500)
+  type         ChatChannelType @default(PUBLIC)
+  createdById  String
+  archivedAt   DateTime?
+  archivedById String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
-  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy User                @relation("chatChannelsCreated", fields: [createdById], references: [id])
-  members   ChatChannelMember[]
-  messages  ChatMessage[]
+  workspace  Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy  User                @relation("chatChannelsCreated", fields: [createdById], references: [id])
+  archivedBy User?               @relation("archivedChannels", fields: [archivedById], references: [id])
+  members    ChatChannelMember[]
+  messages   ChatMessage[]
 
   @@index([workspaceId, type])
 }
@@ -1034,20 +1045,25 @@ model ChatChannelMember {
 }
 
 model ChatMessage {
-  id        String    @id @default(cuid())
-  channelId String
-  userId    String
-  content   String
-  parentId  String?
-  editedAt  DateTime?
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
+  id         String    @id @default(cuid())
+  channelId  String
+  userId     String
+  content    String
+  parentId   String?
+  editedAt   DateTime?
+  deletedAt  DateTime?
+  pinnedAt   DateTime?
+  pinnedById String?
+  createdAt  DateTime  @default(now())
 
-  channel   ChatChannel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  user      User           @relation(fields: [userId], references: [id])
-  parent    ChatMessage?   @relation("thread", fields: [parentId], references: [id])
-  replies   ChatMessage[]  @relation("thread")
-  reactions ChatReaction[]
+  channel       ChatChannel              @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user          User                     @relation(fields: [userId], references: [id])
+  parent        ChatMessage?             @relation("thread", fields: [parentId], references: [id])
+  replies       ChatMessage[]            @relation("thread")
+  reactions     ChatReaction[]
+  pinnedBy      User?                    @relation("pinnedMessages", fields: [pinnedById], references: [id])
+  bookmarks     ChatBookmark[]
+  subscriptions ChatThreadSubscription[]
 
   @@index([channelId, createdAt])
   @@index([parentId])
@@ -1065,5 +1081,31 @@ model ChatReaction {
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model ChatBookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  messageId String
+  createdAt DateTime @default(now())
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId])
+  @@index([userId])
+}
+
+model ChatThreadSubscription {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
   @@index([messageId])
 }

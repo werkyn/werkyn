@@ -9,9 +9,13 @@ import {
   X,
   Check,
   SmilePlus,
+  Pin,
+  Bookmark,
+  Paperclip,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { EmojiPicker } from "@/components/shared/emoji-picker";
+import { MarkdownContent } from "./markdown-content";
 import type { ChatMessage } from "../api";
 
 interface MessageItemProps {
@@ -19,10 +23,14 @@ interface MessageItemProps {
   currentUserId: string;
   isAdmin?: boolean;
   isActiveThread?: boolean;
+  memberMap?: Map<string, string>;
   onThreadClick?: (messageId: string) => void;
   onEdit?: (messageId: string, content: string) => void;
   onDelete?: (messageId: string) => void;
   onReaction?: (messageId: string, emoji: string) => void;
+  onPin?: (messageId: string, pinned: boolean) => void;
+  onBookmark?: (messageId: string) => void;
+  onAttach?: (messageId: string) => void;
 }
 
 function formatTime(dateStr: string) {
@@ -45,10 +53,14 @@ export function MessageItem({
   currentUserId,
   isAdmin,
   isActiveThread,
+  memberMap,
   onThreadClick,
   onEdit,
   onDelete,
   onReaction,
+  onPin,
+  onBookmark,
+  onAttach,
 }: MessageItemProps) {
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
@@ -107,6 +119,9 @@ export function MessageItem({
     !editing &&
     (onThreadClick ||
       onReaction ||
+      onPin ||
+      onBookmark ||
+      onAttach ||
       (isOwn && onEdit) ||
       ((isOwn || isAdmin) && onDelete));
 
@@ -165,6 +180,39 @@ export function MessageItem({
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           )}
+          {onPin && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => onPin(message.id, !message.pinnedAt)}
+              title={message.pinnedAt ? "Unpin message" : "Pin message"}
+            >
+              <Pin className={cn("h-3.5 w-3.5", message.pinnedAt && "text-primary")} />
+            </Button>
+          )}
+          {onBookmark && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => onBookmark(message.id)}
+              title="Save message"
+            >
+              <Bookmark className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {onAttach && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => onAttach(message.id)}
+              title="Attach file"
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+            </Button>
+          )}
           {(isOwn || isAdmin) && onDelete && (
             <Button
               size="icon"
@@ -194,6 +242,9 @@ export function MessageItem({
           </span>
           {message.editedAt && !isDeleted && (
             <span className="text-xs text-muted-foreground">(edited)</span>
+          )}
+          {message.pinnedAt && !isDeleted && (
+            <Pin className="h-3 w-3 text-primary inline" />
           )}
         </div>
 
@@ -228,9 +279,11 @@ export function MessageItem({
             </div>
           </div>
         ) : (
-          <p className="text-sm whitespace-pre-wrap break-words">
-            {message.content}
-          </p>
+          <MarkdownContent
+            content={message.content}
+            memberMap={memberMap}
+            className="text-sm"
+          />
         )}
 
         {/* Reactions */}

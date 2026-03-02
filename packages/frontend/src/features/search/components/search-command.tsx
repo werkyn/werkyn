@@ -9,8 +9,8 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen } from "lucide-react";
-import { useSearch, type SearchResult, type WikiSearchResult } from "../api";
+import { BookOpen, MessageSquare, Hash } from "lucide-react";
+import { useSearch, type SearchResult, type WikiSearchResult, type ChatSearchResult } from "../api";
 
 interface SearchCommandProps {
   open: boolean;
@@ -53,6 +53,7 @@ export function SearchCommand({
   const { data, isLoading } = useSearch(workspaceId, debouncedQuery);
   const results = data?.data ?? [];
   const wikiPages = data?.wikiPages ?? [];
+  const chatMessages = data?.chatMessages ?? [];
 
   // Group results by project
   const grouped = results.reduce<
@@ -97,7 +98,20 @@ export function SearchCommand({
     if (!open) setInput("");
   }, [open]);
 
-  const hasResults = results.length > 0 || wikiPages.length > 0;
+  const handleSelectChatMessage = useCallback(
+    (msg: ChatSearchResult) => {
+      onOpenChange(false);
+      setInput("");
+      navigate({
+        to: "/$workspaceSlug/chat",
+        params: { workspaceSlug },
+        search: { channelId: msg.channel.id },
+      });
+    },
+    [navigate, workspaceSlug, onOpenChange],
+  );
+
+  const hasResults = results.length > 0 || wikiPages.length > 0 || chatMessages.length > 0;
 
   return (
     <CommandDialog
@@ -140,6 +154,28 @@ export function SearchCommand({
                 <Badge variant="secondary" className="text-[10px] px-1">
                   {page.space.icon ?? ""} {page.space.name}
                 </Badge>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {/* Chat Messages */}
+        {chatMessages.length > 0 && (
+          <CommandGroup heading="Chat Messages">
+            {chatMessages.map((msg) => (
+              <CommandItem
+                key={`chat-${msg.id}`}
+                value={`chat ${msg.content} ${msg.channel.name ?? "DM"} ${msg.user.displayName}`}
+                onSelect={() => handleSelectChatMessage(msg)}
+                className="flex items-center gap-2"
+              >
+                <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate">{msg.content.slice(0, 80)}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {msg.user.displayName} in {msg.channel.name ?? "DM"}
+                  </p>
+                </div>
               </CommandItem>
             ))}
           </CommandGroup>

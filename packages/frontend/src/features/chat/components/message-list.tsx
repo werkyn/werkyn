@@ -10,11 +10,15 @@ interface MessageListProps {
   activeThreadId?: string | null;
   hasMore?: boolean;
   isFetchingMore?: boolean;
+  memberMap?: Map<string, string>;
   onLoadMore?: () => void;
   onThreadClick?: (messageId: string) => void;
   onEditMessage?: (messageId: string, content: string) => void;
   onDeleteMessage?: (messageId: string) => void;
   onReaction?: (messageId: string, emoji: string) => void;
+  onPin?: (messageId: string, pinned: boolean) => void;
+  onBookmark?: (messageId: string) => void;
+  onAttach?: (messageId: string) => void;
 }
 
 export function MessageList({
@@ -24,11 +28,15 @@ export function MessageList({
   activeThreadId,
   hasMore,
   isFetchingMore,
+  memberMap,
   onLoadMore,
   onThreadClick,
   onEditMessage,
   onDeleteMessage,
   onReaction,
+  onPin,
+  onBookmark,
+  onAttach,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -102,10 +110,14 @@ export function MessageList({
             currentUserId={currentUserId}
             isAdmin={isAdmin}
             isActiveThread={activeThreadId === msg.id}
+            memberMap={memberMap}
             onThreadClick={onThreadClick}
             onEdit={onEditMessage}
             onDelete={onDeleteMessage}
             onReaction={onReaction}
+            onPin={onPin}
+            onBookmark={onBookmark}
+            onAttach={onAttach}
           />
         ))}
       </div>
