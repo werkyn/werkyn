@@ -12,12 +12,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { useParams } from "@tanstack/react-router";
+import { useAuthStore } from "@/stores/auth-store";
 import { useProfile, useUpdateProfile, useChangePassword } from "../api";
 import { useUploadFile } from "@/features/uploads/api";
 
 const TIMEZONE_NONE = "__none__";
 
 export function ProfileSettings() {
+  const { workspaceSlug } = useParams({ strict: false }) as { workspaceSlug?: string };
+  const workspaces = useAuthStore((s) => s.workspaces);
+  const workspaceId = workspaceSlug
+    ? workspaces.find((w) => w.workspace.slug === workspaceSlug)?.workspace.id
+    : undefined;
+
   const { data: profile, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
   const changePassword = useChangePassword();
@@ -63,8 +71,9 @@ export function ProfileSettings() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!workspaceId) return;
     uploadFile.mutate(
-      { file, purpose: "avatar" },
+      { file, purpose: "avatar", workspaceId },
       {
         onSuccess: (res: { data: { url: string } }) => {
           updateProfile.mutate(

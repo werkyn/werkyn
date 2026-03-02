@@ -21,10 +21,12 @@ function useIsDark() {
 interface WikiEditorProps {
   initialContent?: unknown;
   readOnly?: boolean;
+  workspaceId?: string;
+  spaceId?: string;
   onChange?: (content: Block[]) => void;
 }
 
-export function WikiEditor({ initialContent, readOnly = false, onChange }: WikiEditorProps) {
+export function WikiEditor({ initialContent, readOnly = false, workspaceId, spaceId, onChange }: WikiEditorProps) {
   const isDark = useIsDark();
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -36,7 +38,9 @@ export function WikiEditor({ initialContent, readOnly = false, onChange }: WikiE
       const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
 
       const formData = new FormData();
-      formData.append("purpose", "general");
+      if (workspaceId) formData.append("workspaceId", workspaceId);
+      formData.append("purpose", "wiki");
+      if (spaceId) formData.append("spaceId", spaceId);
       formData.append("file", file);
 
       const response = await fetch(`${baseUrl}/uploads`, {

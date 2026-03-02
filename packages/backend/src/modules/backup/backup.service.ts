@@ -24,9 +24,6 @@ export async function exportBackup(
   // Collect all user IDs referenced across the backup
   const userIdSet = new Set<string>();
 
-  // Track attachment files for reading into the ZIP: assetPath → storagePath
-  const attachmentFileMap = new Map<string, string>();
-
   // ─── Export Projects ──────────────────────────────────
 
   const projectEntries: BackupFile["projects"] = [];
@@ -158,45 +155,6 @@ export async function exportBackup(
       });
     }
 
-    // Attachments (for tasks and their comments in this project)
-    let attachments: BackupFile["projects"][number]["attachments"] = [];
-    if (opt.includeTasks && request.includeFiles) {
-      const taskIds = tasks.map((t) => t._originalId);
-      const commentIds = tasks.flatMap((t) =>
-        t.comments.map((c) => c._originalId),
-      );
-      const entityIds = [...taskIds, ...commentIds];
-
-      if (entityIds.length > 0) {
-        const dbAttachments = await prisma.attachment.findMany({
-          where: {
-            workspaceId,
-            entityId: { in: entityIds },
-            fileId: null, // skip Drive-linked attachments
-          },
-          orderBy: { createdAt: "asc" },
-        });
-
-        attachments = dbAttachments.map((a) => {
-          if (a.uploadedById) userIdSet.add(a.uploadedById);
-          const ext = path.extname(a.name) || path.extname(a.storagePath) || ".bin";
-          const assetPath = `attachments/${a.id}${ext}`;
-          // Track for file reading later
-          attachmentFileMap.set(assetPath, a.storagePath);
-          return {
-            _originalId: a.id,
-            entityType: a.entityType,
-            entityRef: a.entityId,
-            name: a.name,
-            mimeType: a.mimeType,
-            size: Number(a.size),
-            assetPath,
-            uploadedByRef: a.uploadedById,
-          };
-        });
-      }
-    }
-
     projectEntries.push({
       project: {
         name: project.name,
@@ -226,7 +184,7 @@ export async function exportBackup(
       })),
       members: members.map((m) => ({ userRef: m.userId })),
       tasks,
-      attachments,
+      attachments: [],
     });
   }
 
@@ -364,7 +322,7 @@ export async function exportBackup(
     select: { id: true, email: true, displayName: true },
   });
 
-  // ─── Collect Files (wiki images + attachment files) ─────
+  // ─── Collect Files (wiki images) ─────
 
   const assetBuffers = new Map<string, Buffer>();
   const urlRewriteMap = new Map<string, string>();
@@ -408,22 +366,6 @@ export async function exportBackup(
       }
     }
 
-    // Read attachment files from storage
-    for (const [assetPath, storagePath] of attachmentFileMap) {
-      try {
-        const buffer = await storage.read(storagePath);
-        assetBuffers.set(assetPath, buffer);
-      } catch {
-        // File not found on disk
-      }
-    }
-
-    // Remove attachments whose files couldn't be read
-    for (const pEntry of projectEntries) {
-      pEntry.attachments = pEntry.attachments.filter((a) =>
-        assetBuffers.has(a.assetPath),
-      );
-    }
   }
 
   // ─── Build Backup JSON ────────────────────────────────

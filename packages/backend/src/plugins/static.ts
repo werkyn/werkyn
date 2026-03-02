@@ -14,7 +14,7 @@ export default fp(async (fastify: FastifyInstance) => {
   await fastify.register(fastifyStatic, {
     root: path.join(storageDir, "avatars"),
     prefix: "/storage/avatars/",
-    decorateReply: false,
+    decorateReply: true,
   });
 
   // General uploads (wiki images, etc.)
@@ -23,6 +23,19 @@ export default fp(async (fastify: FastifyInstance) => {
     prefix: "/storage/uploads/",
     decorateReply: false,
   });
+
+  // Workspace-scoped uploads
+  fastify.get<{ Params: { workspaceId: string; '*': string } }>(
+    '/storage/:workspaceId/uploads/*',
+    async (request, reply) => {
+      const { workspaceId } = request.params;
+      const subPath = request.params['*'];
+      return reply.sendFile(
+        path.join(workspaceId, 'uploads', subPath),
+        storageDir,
+      );
+    },
+  );
 
   // Legacy uploads path (fallback for existing avatars)
   const legacyUploadsDir = path.join(__dirname, "../../uploads");

@@ -4,6 +4,8 @@ import { useAuthStore } from "@/stores/auth-store";
 interface UploadInput {
   file: File;
   purpose?: string;
+  workspaceId: string;
+  spaceId?: string;
 }
 
 interface UploadResult {
@@ -12,13 +14,17 @@ interface UploadResult {
 
 export function useUploadFile() {
   return useMutation({
-    mutationFn: async ({ file, purpose }: UploadInput): Promise<UploadResult> => {
+    mutationFn: async ({ file, purpose, workspaceId, spaceId }: UploadInput): Promise<UploadResult> => {
       const token = useAuthStore.getState().accessToken;
       const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
 
       const formData = new FormData();
+      formData.append("workspaceId", workspaceId);
       if (purpose) {
         formData.append("purpose", purpose);
+      }
+      if (spaceId) {
+        formData.append("spaceId", spaceId);
       }
       formData.append("file", file);
 

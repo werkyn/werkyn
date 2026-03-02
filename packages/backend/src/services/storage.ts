@@ -38,11 +38,7 @@ export class LocalStorageProvider implements StorageProvider {
     fileId: string,
     ext: string,
   ) {
-    const now = new Date();
-    const yyyy = now.getFullYear().toString();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-
-    const relPath = path.join(category, scopeId, yyyy, mm, `${fileId}${ext}`);
+    const relPath = path.join(category, scopeId, `${fileId}${ext}`);
     const fullPath = path.join(this.rootDir, relPath);
     return { relPath, fullPath };
   }

@@ -61,7 +61,8 @@ export function Topbar() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const result = await uploadFile.mutateAsync({ file, purpose: "avatar" });
+      if (!workspaceId) return;
+      const result = await uploadFile.mutateAsync({ file, purpose: "avatar", workspaceId });
       const res = await api.patch("users/me", { json: { avatarUrl: result.data.url } }).json<{ data: { avatarUrl: string } }>();
       const currentUser = useAuthStore.getState().user;
       if (currentUser) {

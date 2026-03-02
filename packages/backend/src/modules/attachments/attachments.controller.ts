@@ -1,69 +1,6 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
-import path from "node:path";
 import * as attachmentsService from "./attachments.service.js";
 import type { AttachmentQueryInput, LinkAttachmentInput } from "@pm/shared";
-import { ValidationError } from "../../utils/errors.js";
-
-const BLOCKED_EXTENSIONS = [
-  ".exe",
-  ".bat",
-  ".cmd",
-  ".com",
-  ".scr",
-  ".pif",
-  ".msi",
-];
-
-export async function uploadAttachmentHandler(
-  request: FastifyRequest,
-  reply: FastifyReply,
-) {
-  const params = request.params as { wid: string };
-  const data = await request.file();
-
-  if (!data) {
-    throw new ValidationError("No file uploaded");
-  }
-
-  const ext = path.extname(data.filename).toLowerCase();
-  if (BLOCKED_EXTENSIONS.includes(ext)) {
-    throw new ValidationError("This file type is not allowed");
-  }
-
-  const entityType =
-    (data.fields.entityType as { value?: string })?.value;
-  const entityId =
-    (data.fields.entityId as { value?: string })?.value;
-
-  if (!entityType || !entityId) {
-    throw new ValidationError("entityType and entityId are required");
-  }
-
-  if (entityType !== "task" && entityType !== "comment") {
-    throw new ValidationError("entityType must be 'task' or 'comment'");
-  }
-
-  // Detect client disconnect and destroy the upload stream to trigger cleanup
-  request.raw.on("close", () => {
-    if (request.raw.destroyed || !request.raw.complete) {
-      data.file.destroy(new Error("Client disconnected"));
-    }
-  });
-
-  const attachment = await attachmentsService.uploadAttachmentStream(
-    request.server.prisma,
-    request.server.storage,
-    params.wid,
-    request.user!.id,
-    entityType,
-    entityId,
-    data.filename,
-    data.mimetype,
-    data.file,
-  );
-
-  return reply.status(201).send({ data: attachment });
-}
 
 export async function listAttachmentsHandler(
   request: FastifyRequest,
@@ -114,7 +51,6 @@ export async function deleteAttachmentHandler(
 
   await attachmentsService.deleteAttachment(
     request.server.prisma,
-    request.server.storage,
     params.wid,
     params.aid,
   );

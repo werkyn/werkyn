@@ -21,8 +21,12 @@ export async function uploadHandler(
     throw new ValidationError("No file uploaded");
   }
 
-  const purpose =
-    (data.fields.purpose as { value?: string })?.value || "general";
+  const workspaceId = (data.fields.workspaceId as { value?: string })?.value;
+  if (!workspaceId) throw new ValidationError("workspaceId is required");
+
+  const purpose = (data.fields.purpose as { value?: string })?.value;
+  if (!purpose) throw new ValidationError("purpose is required");
+  const spaceId = (data.fields.spaceId as { value?: string })?.value;
 
   const ext = path.extname(data.filename) || ".bin";
   const fileId = crypto.randomUUID();
@@ -38,9 +42,18 @@ export async function uploadHandler(
     }
   }
 
+  let scopeId: string;
+  if (purpose === "avatar") {
+    scopeId = `avatars/${request.user!.id}`;
+  } else if (purpose === "wiki" && spaceId) {
+    scopeId = `wiki/${spaceId}`;
+  } else {
+    throw new ValidationError(`Unsupported upload purpose: ${purpose}`);
+  }
+
   const storagePath = await request.server.storage.save(
-    purpose === "avatar" ? "avatars" : "uploads",
-    request.user!.id,
+    `${workspaceId}/uploads`,
+    scopeId,
     fileId,
     ext,
     buffer,
