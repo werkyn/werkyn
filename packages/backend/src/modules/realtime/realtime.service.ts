@@ -134,6 +134,10 @@ export async function subscribeWorkspace(
 
   conn.workspaceIds.add(workspaceId);
   conn.lastActivity = Date.now();
+
+  // Broadcast presence to workspace
+  broadcastToWorkspace(workspaceId, "presence_online", { userId: conn.userId }, conn.userId);
+
   return true;
 }
 
@@ -248,6 +252,10 @@ export function cleanup(ws: WebSocket): void {
     const count = userConnectionCounts.get(conn.userId) || 0;
     if (count <= 1) {
       userConnectionCounts.delete(conn.userId);
+      // Broadcast offline to all subscribed workspaces
+      for (const wid of conn.workspaceIds) {
+        broadcastToWorkspace(wid, "presence_offline", { userId: conn.userId }, conn.userId);
+      }
     } else {
       userConnectionCounts.set(conn.userId, count - 1);
     }
@@ -274,4 +282,29 @@ export function isIdle(ws: WebSocket): boolean {
   const conn = connections.get(ws);
   if (!conn) return true;
   return Date.now() - conn.lastActivity > IDLE_TIMEOUT_MS;
+}
+
+const PRESENCE_AWAY_MS = 5 * 60 * 1000; // 5 minutes
+
+export function getOnlineUsers(
+  workspaceId: string,
+): Array<{ userId: string; status: "online" | "away" }> {
+  const userStatus = new Map<string, "online" | "away">();
+  const now = Date.now();
+
+  for (const [, conn] of connections) {
+    if (conn.workspaceIds.has(workspaceId)) {
+      const isActive = now - conn.lastActivity < PRESENCE_AWAY_MS;
+      const current = userStatus.get(conn.userId);
+      // If any connection is active, user is online
+      if (!current || (isActive && current === "away")) {
+        userStatus.set(conn.userId, isActive ? "online" : "away");
+      }
+    }
+  }
+
+  return Array.from(userStatus.entries()).map(([userId, status]) => ({
+    userId,
+    status,
+  }));
 }

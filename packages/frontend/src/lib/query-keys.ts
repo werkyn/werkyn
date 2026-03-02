@@ -67,6 +67,12 @@ export const queryKeys = {
   chatThread: (messageId: string) => ["chat-thread", { messageId }] as const,
   chatUnread: (wid: string) => ["chat-unread", { wid }] as const,
   chatMembers: (channelId: string) => ["chat-members", { channelId }] as const,
+  chatPins: (channelId: string) => ["chat-pins", { channelId }] as const,
+  chatBookmarks: (wid: string) => ["chat-bookmarks", { wid }] as const,
+  chatThreadSub: (messageId: string) => ["chat-thread-sub", { messageId }] as const,
+  chatSearch: (wid: string, q: string, channelId?: string) =>
+    ["chat-search", { wid, q, channelId: channelId ?? null }] as const,
+  chatPresence: (wid: string) => ["chat-presence", { wid }] as const,
   fileShares: (wid: string, fid: string) =>
     ["file-shares", { wid, fid }] as const,
   fileShareLinks: (wid: string, fid: string) =>

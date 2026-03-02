@@ -91,6 +91,16 @@ export function NotificationSettings() {
       label: "Mentions",
       description: "When someone @mentions you in a comment",
     },
+    {
+      key: "chatMention" as const,
+      label: "Chat mentions",
+      description: "When someone @mentions you in a chat message",
+    },
+    {
+      key: "chatDmMessage" as const,
+      label: "Direct messages",
+      description: "When someone sends you a direct message",
+    },
   ];
 
   return (
