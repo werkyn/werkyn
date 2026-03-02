@@ -16,9 +16,18 @@ interface WikiSearchResult {
   space: { id: string; name: string; icon: string | null };
 }
 
+interface ChatSearchResult {
+  id: string;
+  content: string;
+  createdAt: string;
+  user: { id: string; displayName: string; avatarUrl: string | null };
+  channel: { id: string; name: string | null; type: string };
+}
+
 interface SearchResponse {
   data: SearchResult[];
   wikiPages: WikiSearchResult[];
+  chatMessages?: ChatSearchResult[];
 }
 
 export function useSearch(wid: string, query: string) {
@@ -35,4 +44,4 @@ export function useSearch(wid: string, query: string) {
   });
 }
 
-export type { SearchResult, WikiSearchResult };
+export type { SearchResult, WikiSearchResult, ChatSearchResult };

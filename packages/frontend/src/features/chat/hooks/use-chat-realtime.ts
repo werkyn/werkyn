@@ -13,6 +13,7 @@ interface ChatRealtimeMessage {
     channel?: unknown;
     userId?: string;
     displayName?: string;
+    parentId?: string;
   };
   channelId?: string;
 }
@@ -103,6 +104,49 @@ export function useChatRealtime(
             onTyping(data.userId, data.displayName);
           }
           break;
+
+        case "chat_message_pinned":
+        case "chat_message_unpinned":
+          if (data.channelId) {
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.chatMessages(data.channelId),
+            });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.chatPins(data.channelId),
+            });
+          }
+          break;
+
+        case "chat_thread_reply":
+          if (data.parentId) {
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.chatThread(data.parentId),
+            });
+          }
+          if (data.channelId) {
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.chatMessages(data.channelId),
+            });
+          }
+          break;
+
+        case "notification_created":
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.notificationUnreadCount,
+          });
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.notifications,
+          });
+          break;
+
+        case "presence_online":
+        case "presence_offline":
+          if (workspaceId) {
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.chatPresence(workspaceId),
+            });
+          }
+          break;
       }
     },
     [workspaceId, onTyping],
@@ -122,6 +166,8 @@ export function useChatRealtime(
     client.on("chat_member_removed", handleEvent);
     client.on("chat_typing", handleEvent);
     client.on("chat_reaction_updated", handleEvent);
+    client.on("chat_message_pinned", handleEvent);
+    client.on("chat_message_unpinned", handleEvent);
 
     return () => {
       client.unsubscribeChannel(channelId);
@@ -133,31 +179,77 @@ export function useChatRealtime(
       client.off("chat_member_removed", handleEvent);
       client.off("chat_typing", handleEvent);
       client.off("chat_reaction_updated", handleEvent);
+      client.off("chat_message_pinned", handleEvent);
+      client.off("chat_message_unpinned", handleEvent);
     };
   }, [client, channelId, handleEvent]);
 
-  // Subscribe to workspace-level channel events
+  // Subscribe to workspace-level events
   useEffect(() => {
     if (!client || !workspaceId) return;
 
     const handleWorkspaceEvent = (msg: unknown) => {
-      const { event } = msg as ChatRealtimeMessage;
-      if (
-        event === "chat_channel_created" ||
-        event === "chat_channel_deleted"
-      ) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.chatChannels(workspaceId),
-        });
+      const { event, data } = msg as ChatRealtimeMessage;
+
+      switch (event) {
+        case "chat_channel_created":
+        case "chat_channel_deleted":
+        case "chat_channel_archived":
+        case "chat_channel_unarchived":
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.chatChannels(workspaceId),
+          });
+          if (data.channelId) {
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.chatChannel(data.channelId),
+            });
+          }
+          break;
+
+        case "presence_online":
+        case "presence_offline":
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.chatPresence(workspaceId),
+          });
+          break;
+
+        case "notification_created":
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.notificationUnreadCount,
+          });
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.notifications,
+          });
+          break;
+
+        case "chat_thread_reply":
+          if (data.parentId) {
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.chatThread(data.parentId),
+            });
+          }
+          break;
       }
     };
 
     client.on("chat_channel_created", handleWorkspaceEvent);
     client.on("chat_channel_deleted", handleWorkspaceEvent);
+    client.on("chat_channel_archived", handleWorkspaceEvent);
+    client.on("chat_channel_unarchived", handleWorkspaceEvent);
+    client.on("presence_online", handleWorkspaceEvent);
+    client.on("presence_offline", handleWorkspaceEvent);
+    client.on("notification_created", handleWorkspaceEvent);
+    client.on("chat_thread_reply", handleWorkspaceEvent);
 
     return () => {
       client.off("chat_channel_created", handleWorkspaceEvent);
       client.off("chat_channel_deleted", handleWorkspaceEvent);
+      client.off("chat_channel_archived", handleWorkspaceEvent);
+      client.off("chat_channel_unarchived", handleWorkspaceEvent);
+      client.off("presence_online", handleWorkspaceEvent);
+      client.off("presence_offline", handleWorkspaceEvent);
+      client.off("notification_created", handleWorkspaceEvent);
+      client.off("chat_thread_reply", handleWorkspaceEvent);
     };
   }, [client, workspaceId]);
 }

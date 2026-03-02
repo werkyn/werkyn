@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import type { WorkspaceSearchInput, UpdateWorkspaceSettingsInput } from "@pm/shared";
 import * as workspacesService from "./workspaces.service.js";
+import * as chatService from "../chat/chat.service.js";
 
 export async function createWorkspaceHandler(
   request: FastifyRequest,
@@ -163,7 +164,7 @@ export async function searchHandler(
 ) {
   const params = request.params as { wid: string };
   const query = request.query as WorkspaceSearchInput;
-  const [taskResult, wikiPages] = await Promise.all([
+  const [taskResult, wikiPages, chatMessagesResult] = await Promise.all([
     workspacesService.searchTasks(
       request.server.prisma,
       params.wid,
@@ -178,6 +179,15 @@ export async function searchHandler(
       query.q,
       10,
     ),
+    chatService.searchMessages(
+      request.server.prisma,
+      params.wid,
+      request.user!.id,
+      query.q,
+      undefined,
+      undefined,
+      10,
+    ),
   ]);
-  return reply.send({ data: taskResult.data, wikiPages });
+  return reply.send({ data: taskResult.data, wikiPages, chatMessages: chatMessagesResult.data });
 }

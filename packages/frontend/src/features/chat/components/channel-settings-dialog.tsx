@@ -37,6 +37,8 @@ interface ChannelSettingsDialogProps {
     avatarUrl: string | null;
   }>;
   onDeleted?: () => void;
+  onArchive?: (archived: boolean) => void;
+  isArchived?: boolean;
 }
 
 export function ChannelSettingsDialog({
@@ -48,6 +50,8 @@ export function ChannelSettingsDialog({
   isAdmin,
   workspaceMembers = [],
   onDeleted,
+  onArchive,
+  isArchived,
 }: ChannelSettingsDialogProps) {
   const [name, setName] = useState(channel.name ?? "");
   const [description, setDescription] = useState(channel.description ?? "");
@@ -232,14 +236,24 @@ export function ChannelSettingsDialog({
 
             <DialogFooter className="mt-6">
               {canEdit && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => setConfirmDelete(true)}
-                  className="mr-auto"
-                >
-                  Delete
-                </Button>
+                <div className="flex gap-2 mr-auto">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Delete
+                  </Button>
+                  {onArchive && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => onArchive(!isArchived)}
+                    >
+                      {isArchived ? "Unarchive" : "Archive"}
+                    </Button>
+                  )}
+                </div>
               )}
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel

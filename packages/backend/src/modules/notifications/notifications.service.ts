@@ -7,6 +7,8 @@ const TYPE_TO_PREF_KEY: Record<NotificationType, string> = {
   TASK_DUE_SOON: "taskDueSoon",
   COMMENT_ADDED: "commentAdded",
   COMMENT_MENTION: "commentMention",
+  CHAT_MENTION: "chatMention",
+  CHAT_DM_MESSAGE: "chatDmMessage",
 };
 
 export async function createNotification(
