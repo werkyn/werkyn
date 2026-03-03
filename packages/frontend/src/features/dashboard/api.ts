@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
+import { queryClient } from "@/lib/query-client";
 import { queryKeys } from "@/lib/query-keys";
+import { toast } from "sonner";
 import type { Notification } from "@/features/notifications/api";
 
 export interface DashboardProject {
@@ -71,5 +73,46 @@ export function useMentionNotifications() {
         })
         .json<{ data: Notification[]; nextCursor?: string }>(),
     select: (res) => res.data,
+  });
+}
+
+// ─── Dashboard Preferences ────────────────────────────
+
+export interface WidgetConfigItem {
+  id: string;
+  enabled: boolean;
+}
+
+export interface DashboardPreference {
+  id: string;
+  widgetOrder: WidgetConfigItem[];
+}
+
+export function useDashboardPreferences(wid: string) {
+  return useQuery({
+    queryKey: queryKeys.dashboardPreferences(wid),
+    queryFn: () =>
+      api
+        .get(`workspaces/${wid}/dashboard/preferences`)
+        .json<{ data: DashboardPreference | null }>(),
+    enabled: !!wid,
+  });
+}
+
+export function useUpdateDashboardPreferences(wid: string) {
+  return useMutation({
+    mutationFn: (data: { widgetOrder: WidgetConfigItem[] }) =>
+      api
+        .patch(`workspaces/${wid}/dashboard/preferences`, { json: data })
+        .json<{ data: DashboardPreference }>(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.dashboardPreferences(wid),
+      });
+      toast.success("Dashboard preferences saved");
+    },
+    onError: () => {
+      toast.error("Failed to save dashboard preferences");
+    },
   });
 }

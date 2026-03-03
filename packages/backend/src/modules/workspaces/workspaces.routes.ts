@@ -14,6 +14,8 @@ import {
   updateWorkspaceSettingsHandler,
   listWorkspaceActivityHandler,
   searchHandler,
+  getDashboardPreferenceHandler,
+  updateDashboardPreferenceHandler,
 } from "./workspaces.controller.js";
 import { authenticate } from "../../middleware/authenticate.js";
 import { authorize } from "../../middleware/authorize.js";
@@ -23,7 +25,7 @@ import {
   UpdateWorkspaceSchema,
   UpdateWorkspaceMemberSchema,
 } from "./workspaces.schemas.js";
-import { WorkspaceSearchSchema, UpdateWorkspaceSettingsSchema, ActivityLogQuerySchema } from "@pm/shared";
+import { WorkspaceSearchSchema, UpdateWorkspaceSettingsSchema, ActivityLogQuerySchema, UpdateDashboardPreferenceSchema } from "@pm/shared";
 
 export default async function workspacesRoutes(fastify: FastifyInstance) {
   // POST /api/workspaces
@@ -156,5 +158,25 @@ export default async function workspacesRoutes(fastify: FastifyInstance) {
       validateQuery(WorkspaceSearchSchema),
     ],
     handler: searchHandler,
+  });
+
+  // GET /api/workspaces/:wid/dashboard/preferences
+  fastify.route({
+    method: "GET",
+    url: "/:wid/dashboard/preferences",
+    preHandler: [authenticate, authorize("ADMIN", "MEMBER", "VIEWER")],
+    handler: getDashboardPreferenceHandler,
+  });
+
+  // PATCH /api/workspaces/:wid/dashboard/preferences
+  fastify.route({
+    method: "PATCH",
+    url: "/:wid/dashboard/preferences",
+    preHandler: [
+      authenticate,
+      authorize("ADMIN", "MEMBER", "VIEWER"),
+      validate(UpdateDashboardPreferenceSchema),
+    ],
+    handler: updateDashboardPreferenceHandler,
   });
 }

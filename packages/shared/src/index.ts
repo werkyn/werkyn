@@ -28,6 +28,7 @@ export * from "./schemas/time-entry.js";
 export * from "./schemas/sso.js";
 export * from "./schemas/chat.js";
 export * from "./schemas/backup.js";
+export * from "./schemas/dashboard-preference.js";
 
 // Types
 export * from "./types/index.js";

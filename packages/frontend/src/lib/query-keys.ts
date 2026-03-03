@@ -85,4 +85,6 @@ export const queryKeys = {
     ["files", { wid, sharedWithMe: true }] as const,
   sharedByMe: (wid: string) =>
     ["files", { wid, sharedByMe: true }] as const,
+  dashboardPreferences: (wid: string) =>
+    ["dashboard-preferences", { wid }] as const,
 };
