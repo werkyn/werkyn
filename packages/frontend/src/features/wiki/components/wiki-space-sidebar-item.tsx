@@ -113,7 +113,10 @@ export function WikiSpaceSidebarItem({
           />
         ) : (
           <button
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => {
+              setExpanded(true);
+              onPageClick("", space.id);
+            }}
             className="flex-1 text-left truncate"
           >
             {space.name}
@@ -183,7 +186,6 @@ export function WikiSpaceSidebarItem({
               key={page.id}
               page={page}
               activePageId={activePageId}
-              onRootClick={() => onPageClick("", space.id)}
               onPageClick={(pgid) => onPageClick(pgid, space.id)}
             />
           ))}
