@@ -75,7 +75,7 @@ export function UpcomingDatesWidget({ workspaceId, onTaskClick }: UpcomingDatesW
                 <button
                   key={task.id}
                   onClick={() => onTaskClick(task.id, task.project.id)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left hover:bg-accent transition-colors -mx-2"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left hover:bg-accent transition-colors"
                 >
                   <div
                     className="h-2 w-2 rounded-full shrink-0"

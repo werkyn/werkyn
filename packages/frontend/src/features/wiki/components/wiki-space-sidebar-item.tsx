@@ -183,7 +183,14 @@ export function WikiSpaceSidebarItem({
               key={page.id}
               page={page}
               activePageId={activePageId}
-              onPageClick={(pgid) => onPageClick(pgid, space.id)}
+              onPageClick={(pgid) => {
+                if (!page.parentId && pgid === page.id) {
+                  // Root page: open the space view instead
+                  onPageClick("", space.id);
+                } else {
+                  onPageClick(pgid, space.id);
+                }
+              }}
             />
           ))}
           {pages.length === 0 && (

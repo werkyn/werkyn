@@ -67,7 +67,7 @@ export function MentionsWidget({ workspaceId: _workspaceId, workspaceSlug }: Men
                 <Link
                   key={notification.id}
                   {...linkProps}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors -mx-2"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
                 >
                   {!notification.read && (
                     <span className="h-2 w-2 rounded-full bg-primary shrink-0" />

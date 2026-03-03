@@ -76,7 +76,7 @@ export function UnreadChatsWidget({ workspaceId, workspaceSlug }: UnreadChatsWid
                   to="/$workspaceSlug/chat"
                   params={{ workspaceSlug }}
                   search={{ channelId: item.channelId }}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors -mx-2"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
                 >
                   <span className="flex-1 min-w-0 truncate font-medium">{name}</span>
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">

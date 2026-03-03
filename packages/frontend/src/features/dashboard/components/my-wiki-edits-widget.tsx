@@ -79,7 +79,7 @@ export function MyWikiEditsWidget({ workspaceId, workspaceSlug }: MyWikiEditsWid
                 to="/$workspaceSlug/knowledge"
                 params={{ workspaceSlug }}
                 search={{ spaceId: page._spaceId, pageId: page.id }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors -mx-2"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
               >
                 <span className="shrink-0">{page.icon ?? "📄"}</span>
                 <div className="flex-1 min-w-0">

@@ -145,7 +145,7 @@ export function CustomizeDashboardDialog({
                     type="button"
                     onClick={() => moveUp(index)}
                     disabled={index === 0}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     <ChevronUp className="h-3.5 w-3.5" />
                   </button>
@@ -153,7 +153,7 @@ export function CustomizeDashboardDialog({
                     type="button"
                     onClick={() => moveDown(index)}
                     disabled={index === items.length - 1}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     <ChevronDown className="h-3.5 w-3.5" />
                   </button>

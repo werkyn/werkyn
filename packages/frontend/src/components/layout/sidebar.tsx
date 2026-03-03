@@ -23,9 +23,10 @@ interface SidebarProps {
   wikiSpaces?: WikiSpace[];
   enabledModules?: string[];
   onCreateProject?: () => void;
+  onCreateSpace?: () => void;
 }
 
-export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["drive", "wiki", "time", "chat"], onCreateProject }: SidebarProps) {
+export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["drive", "wiki", "time", "chat"], onCreateProject, onCreateSpace }: SidebarProps) {
   const { workspaceSlug } = useParams({ strict: false }) as { workspaceSlug: string };
   const { projectId } = useParams({ strict: false }) as { projectId?: string };
   const workspaces = useAuthStore((s) => s.workspaces);
@@ -197,7 +198,7 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
 
         {enabledModules.includes("wiki") && (
           <div className="pt-4">
-            <div className="px-2 pb-1">
+            <div className="flex items-center justify-between px-2 pb-1">
               <Link
                 to="/$workspaceSlug/knowledge"
                 params={{ workspaceSlug }}
@@ -206,6 +207,15 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
               >
                 Knowledge
               </Link>
+              {permissions.canCreate && (
+                <button
+                  onClick={onCreateSpace}
+                  className="rounded p-0.5 hover:bg-accent transition-colors"
+                  aria-label="New space"
+                >
+                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
             </div>
 
             {wikiSpaces.map((space) => (
@@ -216,7 +226,9 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
                   navigate({
                     to: "/$workspaceSlug/knowledge",
                     params: { workspaceSlug },
-                    search: { spaceId, pageId },
+                    search: pageId
+                      ? { spaceId, pageId }
+                      : { spaceId },
                   });
                 }}
               />

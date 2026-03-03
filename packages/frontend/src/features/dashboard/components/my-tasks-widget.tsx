@@ -100,7 +100,7 @@ export function MyTasksWidget({ workspaceId, onTaskClick }: MyTasksWidgetProps) 
                   <button
                     key={task.id}
                     onClick={() => onTaskClick(task.id, task.project.id)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left hover:bg-accent transition-colors -mx-2"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left hover:bg-accent transition-colors"
                   >
                     <span className="flex-1 min-w-0 truncate">{task.title}</span>
                     <Badge

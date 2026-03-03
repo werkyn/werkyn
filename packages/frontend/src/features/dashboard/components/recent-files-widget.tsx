@@ -57,7 +57,7 @@ export function RecentFilesWidget({ workspaceId, workspaceSlug }: RecentFilesWid
                 to="/$workspaceSlug/drive"
                 params={{ workspaceSlug }}
                 search={file.parentId ? { folderId: file.parentId } : {}}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors -mx-2"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
               >
                 {file.isFolder ? (
                   <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
