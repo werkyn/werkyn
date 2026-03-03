@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
+import type { Notification } from "@/features/notifications/api";
 
 export interface DashboardProject {
   id: string;
@@ -52,5 +53,23 @@ export function useWorkspaceActivity(wid: string) {
           pagination: { page: number; limit: number; total: number; totalPages: number };
         }>(),
     enabled: !!wid,
+  });
+}
+
+// ─── Mention Notifications ────────────────────────────
+
+export function useMentionNotifications() {
+  return useQuery({
+    queryKey: queryKeys.mentionNotifications,
+    queryFn: () =>
+      api
+        .get("notifications", {
+          searchParams: {
+            type: "CHAT_MENTION,COMMENT_MENTION",
+            limit: "10",
+          },
+        })
+        .json<{ data: Notification[]; nextCursor?: string }>(),
+    select: (res) => res.data,
   });
 }

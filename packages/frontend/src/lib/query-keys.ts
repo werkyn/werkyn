@@ -23,6 +23,7 @@ export const queryKeys = {
   templates: (pid: string) => ["projects", pid, "templates"] as const,
   recurring: (pid: string) => ["projects", pid, "recurring"] as const,
   notifications: ["notifications"] as const,
+  mentionNotifications: ["notifications", "mentions"] as const,
   notificationUnreadCount: ["notifications", "unread-count"] as const,
   notificationPreferences: ["notifications", "preferences"] as const,
   files: (wid: string, parentId?: string | null, teamFolderId?: string, sortBy?: string, sortOrder?: string) =>

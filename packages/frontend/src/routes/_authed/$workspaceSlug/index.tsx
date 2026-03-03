@@ -11,6 +11,9 @@ import { RecentWikiWidget } from "@/features/dashboard/components/recent-wiki-wi
 import { TimeTrackingWidget } from "@/features/dashboard/components/time-tracking-widget";
 import { UpcomingDatesWidget } from "@/features/dashboard/components/upcoming-dates-widget";
 import { WorkspaceStatsWidget } from "@/features/dashboard/components/workspace-stats-widget";
+import { RecentFilesWidget } from "@/features/dashboard/components/recent-files-widget";
+import { MyWikiEditsWidget } from "@/features/dashboard/components/my-wiki-edits-widget";
+import { MentionsWidget } from "@/features/dashboard/components/mentions-widget";
 import { ActivityFeedWidget } from "@/features/dashboard/components/activity-feed-widget";
 import { TaskSlideover } from "@/features/tasks/components/task-slideover";
 import { Button } from "@/components/ui/button";
@@ -91,6 +94,12 @@ function WorkspaceDashboard() {
           <TimeTrackingWidget workspaceId={workspaceId} />
           <UpcomingDatesWidget workspaceId={workspaceId} onTaskClick={openTask} />
           <WorkspaceStatsWidget workspaceId={workspaceId} />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <RecentFilesWidget workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
+          <MyWikiEditsWidget workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
+          <MentionsWidget workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
         </div>
 
         <ActivityFeedWidget workspaceId={workspaceId} onTaskClick={openTask} />
