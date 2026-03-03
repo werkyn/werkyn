@@ -5,6 +5,9 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useDashboard } from "@/features/dashboard/api";
 import { ProjectGrid } from "@/features/dashboard/components/project-grid";
 import { MyTasksWidget } from "@/features/dashboard/components/my-tasks-widget";
+import { StarredFilesWidget } from "@/features/dashboard/components/starred-files-widget";
+import { UnreadChatsWidget } from "@/features/dashboard/components/unread-chats-widget";
+import { RecentWikiWidget } from "@/features/dashboard/components/recent-wiki-widget";
 import { TaskSlideover } from "@/features/tasks/components/task-slideover";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -73,6 +76,12 @@ function WorkspaceDashboard() {
         </div>
 
         <MyTasksWidget workspaceId={workspaceId} onTaskClick={openTask} />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <StarredFilesWidget workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
+          <UnreadChatsWidget workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
+          <RecentWikiWidget workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
+        </div>
 
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
