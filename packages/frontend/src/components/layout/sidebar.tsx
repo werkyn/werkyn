@@ -70,7 +70,7 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
         )}
       >
         <div>
-          <div className="flex items-center justify-between px-3 py-3">
+          <div className="flex h-12 items-center justify-between px-3 border-b border-sidebar-border dark:border-white/10">
             <img
               src="/werkyn_logo.svg"
               alt="Werkyn"
@@ -95,11 +95,9 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
               </button>
             </div>
           </div>
-          <hr className="border-sidebar-border dark:border-white/10" />
-          <div className="px-3 py-3">
+          <div className="px-3 py-3 border-b border-sidebar-border dark:border-white/10">
             <WorkspaceSwitcher currentSlug={workspaceSlug} />
           </div>
-          <hr className="border-sidebar-border dark:border-white/10" />
         </div>
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
