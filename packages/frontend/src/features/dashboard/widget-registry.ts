@@ -29,6 +29,14 @@ export const GRID_WIDGETS: WidgetDefinition[] = [
   { id: "mentions", label: "Mentions", icon: AtSign },
 ];
 
-export const DEFAULT_WIDGET_ORDER: WidgetConfigItem[] = GRID_WIDGETS.map(
-  (w) => ({ id: w.id, enabled: true }),
-);
+export const DEFAULT_WIDGET_ORDER: WidgetConfigItem[] = [
+  { id: "starred-files", enabled: true },
+  { id: "unread-chats", enabled: true },
+  { id: "workspace-stats", enabled: true },
+  { id: "recent-wiki", enabled: false },
+  { id: "time-tracking", enabled: false },
+  { id: "upcoming-dates", enabled: false },
+  { id: "recent-files", enabled: false },
+  { id: "my-wiki-edits", enabled: false },
+  { id: "mentions", enabled: false },
+];
