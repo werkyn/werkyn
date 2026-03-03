@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
-import type { WorkspaceSearchInput, UpdateWorkspaceSettingsInput } from "@pm/shared";
+import type { WorkspaceSearchInput, UpdateWorkspaceSettingsInput, ActivityLogQueryInput } from "@pm/shared";
 import * as workspacesService from "./workspaces.service.js";
 import * as chatService from "../chat/chat.service.js";
 
@@ -156,6 +156,20 @@ export async function updateWorkspaceSettingsHandler(
     body,
   );
   return reply.send({ data: settings });
+}
+
+export async function listWorkspaceActivityHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string };
+  const query = request.query as ActivityLogQueryInput;
+  const result = await workspacesService.listWorkspaceActivity(
+    request.server.prisma,
+    params.wid,
+    query,
+  );
+  return reply.send(result);
 }
 
 export async function searchHandler(

@@ -8,6 +8,10 @@ import { MyTasksWidget } from "@/features/dashboard/components/my-tasks-widget";
 import { StarredFilesWidget } from "@/features/dashboard/components/starred-files-widget";
 import { UnreadChatsWidget } from "@/features/dashboard/components/unread-chats-widget";
 import { RecentWikiWidget } from "@/features/dashboard/components/recent-wiki-widget";
+import { TimeTrackingWidget } from "@/features/dashboard/components/time-tracking-widget";
+import { UpcomingDatesWidget } from "@/features/dashboard/components/upcoming-dates-widget";
+import { WorkspaceStatsWidget } from "@/features/dashboard/components/workspace-stats-widget";
+import { ActivityFeedWidget } from "@/features/dashboard/components/activity-feed-widget";
 import { TaskSlideover } from "@/features/tasks/components/task-slideover";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -82,6 +86,14 @@ function WorkspaceDashboard() {
           <UnreadChatsWidget workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
           <RecentWikiWidget workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <TimeTrackingWidget workspaceId={workspaceId} />
+          <UpcomingDatesWidget workspaceId={workspaceId} onTaskClick={openTask} />
+          <WorkspaceStatsWidget workspaceId={workspaceId} />
+        </div>
+
+        <ActivityFeedWidget workspaceId={workspaceId} onTaskClick={openTask} />
 
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

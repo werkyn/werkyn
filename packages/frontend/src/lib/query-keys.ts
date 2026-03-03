@@ -16,6 +16,7 @@ export const queryKeys = {
   comments: (tid: string) => ["tasks", tid, "comments"] as const,
   activity: (tid: string) => ["tasks", tid, "activity"] as const,
   dashboard: (wid: string) => ["workspaces", wid, "dashboard"] as const,
+  workspaceActivity: (wid: string) => ["workspaces", wid, "activity"] as const,
   myTasks: (wid: string) => ["my-tasks", { wid }] as const,
   search: (wid: string, q: string) => ["search", { wid, q }] as const,
   invites: (wid: string) => ["workspaces", wid, "invites"] as const,

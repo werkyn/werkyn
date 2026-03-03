@@ -12,6 +12,7 @@ import {
   getMyTasksHandler,
   getWorkspaceSettingsHandler,
   updateWorkspaceSettingsHandler,
+  listWorkspaceActivityHandler,
   searchHandler,
 } from "./workspaces.controller.js";
 import { authenticate } from "../../middleware/authenticate.js";
@@ -22,7 +23,7 @@ import {
   UpdateWorkspaceSchema,
   UpdateWorkspaceMemberSchema,
 } from "./workspaces.schemas.js";
-import { WorkspaceSearchSchema, UpdateWorkspaceSettingsSchema } from "@pm/shared";
+import { WorkspaceSearchSchema, UpdateWorkspaceSettingsSchema, ActivityLogQuerySchema } from "@pm/shared";
 
 export default async function workspacesRoutes(fastify: FastifyInstance) {
   // POST /api/workspaces
@@ -131,6 +132,18 @@ export default async function workspacesRoutes(fastify: FastifyInstance) {
       validate(UpdateWorkspaceSettingsSchema),
     ],
     handler: updateWorkspaceSettingsHandler,
+  });
+
+  // GET /api/workspaces/:wid/activity
+  fastify.route({
+    method: "GET",
+    url: "/:wid/activity",
+    preHandler: [
+      authenticate,
+      authorize("ADMIN", "MEMBER", "VIEWER"),
+      validateQuery(ActivityLogQuerySchema),
+    ],
+    handler: listWorkspaceActivityHandler,
   });
 
   // GET /api/workspaces/:wid/search

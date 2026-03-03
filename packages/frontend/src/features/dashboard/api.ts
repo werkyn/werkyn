@@ -22,3 +22,35 @@ export function useDashboard(wid: string) {
     enabled: !!wid,
   });
 }
+
+// ─── Workspace Activity ────────────────────────────────
+
+export interface WorkspaceActivityEntry {
+  id: string;
+  taskId: string;
+  action: string;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+  actor: { id: string; displayName: string; avatarUrl: string | null } | null;
+  task: {
+    id: string;
+    title: string;
+    project: { id: string; name: string; color: string | null };
+  };
+}
+
+export function useWorkspaceActivity(wid: string) {
+  return useQuery({
+    queryKey: queryKeys.workspaceActivity(wid),
+    queryFn: () =>
+      api
+        .get(`workspaces/${wid}/activity`, {
+          searchParams: { limit: "30" },
+        })
+        .json<{
+          data: WorkspaceActivityEntry[];
+          pagination: { page: number; limit: number; total: number; totalPages: number };
+        }>(),
+    enabled: !!wid,
+  });
+}

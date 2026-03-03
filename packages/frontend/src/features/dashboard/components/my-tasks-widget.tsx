@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { AlertTriangle } from "lucide-react";
 
 const priorityVariant: Record<string, string> = {
   LOW: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
@@ -19,6 +20,11 @@ interface MyTasksWidgetProps {
 export function MyTasksWidget({ workspaceId, onTaskClick }: MyTasksWidgetProps) {
   const { data, isLoading } = useMyTasks(workspaceId);
   const tasks = data?.data ?? [];
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const overdueTasks = tasks.filter(
+    (t) => t.dueDate && t.dueDate < todayStr && !t.status.isCompletion,
+  );
 
   const grouped = tasks.reduce<Record<string, { project: { id: string; name: string; color: string | null }; tasks: MyTask[] }>>(
     (acc, task) => {
@@ -51,6 +57,33 @@ export function MyTasksWidget({ workspaceId, onTaskClick }: MyTasksWidgetProps) 
           <p className="text-sm text-muted-foreground py-2">No tasks assigned</p>
         ) : (
           <div className="max-h-[400px] overflow-y-auto space-y-4">
+            {overdueTasks.length > 0 && (
+              <div className="rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-2 space-y-1">
+                <div className="flex items-center gap-1.5 pb-0.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                  <span className="text-xs font-semibold text-destructive">
+                    Overdue ({overdueTasks.length})
+                  </span>
+                </div>
+                {overdueTasks.map((task) => (
+                  <button
+                    key={`overdue-${task.id}`}
+                    onClick={() => onTaskClick(task.id, task.project.id)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                  >
+                    <div
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ backgroundColor: task.project.color ?? "#6366f1" }}
+                    />
+                    <span className="flex-1 min-w-0 truncate text-destructive">{task.title}</span>
+                    <span className="text-xs text-destructive shrink-0">
+                      {new Date(task.dueDate!).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {Object.entries(grouped).map(([pid, group]) => (
               <div key={pid} className="space-y-1">
                 <div className="flex items-center gap-2 pb-0.5">
