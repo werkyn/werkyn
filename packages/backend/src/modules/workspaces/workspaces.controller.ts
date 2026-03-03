@@ -1,7 +1,8 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
-import type { WorkspaceSearchInput, UpdateWorkspaceSettingsInput } from "@pm/shared";
+import type { WorkspaceSearchInput, UpdateWorkspaceSettingsInput, ActivityLogQueryInput, UpdateDashboardPreferenceInput } from "@pm/shared";
 import * as workspacesService from "./workspaces.service.js";
 import * as chatService from "../chat/chat.service.js";
+import * as dashboardPreferenceService from "./dashboard-preference.service.js";
 
 export async function createWorkspaceHandler(
   request: FastifyRequest,
@@ -158,6 +159,20 @@ export async function updateWorkspaceSettingsHandler(
   return reply.send({ data: settings });
 }
 
+export async function listWorkspaceActivityHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string };
+  const query = request.query as ActivityLogQueryInput;
+  const result = await workspacesService.listWorkspaceActivity(
+    request.server.prisma,
+    params.wid,
+    query,
+  );
+  return reply.send(result);
+}
+
 export async function searchHandler(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -190,4 +205,32 @@ export async function searchHandler(
     ),
   ]);
   return reply.send({ data: taskResult.data, wikiPages, chatMessages: chatMessagesResult.data });
+}
+
+export async function getDashboardPreferenceHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string };
+  const pref = await dashboardPreferenceService.getDashboardPreference(
+    request.server.prisma,
+    request.user!.id,
+    params.wid,
+  );
+  return reply.send({ data: pref });
+}
+
+export async function updateDashboardPreferenceHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const params = request.params as { wid: string };
+  const body = request.body as UpdateDashboardPreferenceInput;
+  const pref = await dashboardPreferenceService.updateDashboardPreference(
+    request.server.prisma,
+    request.user!.id,
+    params.wid,
+    body,
+  );
+  return reply.send({ data: pref });
 }

@@ -16,12 +16,14 @@ export const queryKeys = {
   comments: (tid: string) => ["tasks", tid, "comments"] as const,
   activity: (tid: string) => ["tasks", tid, "activity"] as const,
   dashboard: (wid: string) => ["workspaces", wid, "dashboard"] as const,
+  workspaceActivity: (wid: string) => ["workspaces", wid, "activity"] as const,
   myTasks: (wid: string) => ["my-tasks", { wid }] as const,
   search: (wid: string, q: string) => ["search", { wid, q }] as const,
   invites: (wid: string) => ["workspaces", wid, "invites"] as const,
   templates: (pid: string) => ["projects", pid, "templates"] as const,
   recurring: (pid: string) => ["projects", pid, "recurring"] as const,
   notifications: ["notifications"] as const,
+  mentionNotifications: ["notifications", "mentions"] as const,
   notificationUnreadCount: ["notifications", "unread-count"] as const,
   notificationPreferences: ["notifications", "preferences"] as const,
   files: (wid: string, parentId?: string | null, teamFolderId?: string, sortBy?: string, sortOrder?: string) =>
@@ -83,4 +85,6 @@ export const queryKeys = {
     ["files", { wid, sharedWithMe: true }] as const,
   sharedByMe: (wid: string) =>
     ["files", { wid, sharedByMe: true }] as const,
+  dashboardPreferences: (wid: string) =>
+    ["dashboard-preferences", { wid }] as const,
 };

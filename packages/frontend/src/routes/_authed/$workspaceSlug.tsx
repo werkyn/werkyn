@@ -10,6 +10,7 @@ import { useWikiSpaces } from "@/features/wiki/api";
 import { useWorkspaceSettings } from "@/features/admin/api";
 import { useState, useEffect } from "react";
 import { CreateProjectDialog } from "@/features/projects/components/create-project-dialog";
+import { CreateSpaceDialog } from "@/features/wiki/components/create-space-dialog";
 import { RealtimeProvider } from "@/components/providers/realtime-provider";
 import { useNotificationRealtime } from "@/hooks/use-notification-realtime";
 import { useWikiRealtime } from "@/features/wiki/hooks/use-wiki-realtime";
@@ -32,6 +33,7 @@ function WorkspaceLayout() {
   const { workspace, membership } = Route.useRouteContext();
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
+  const [createSpaceOpen, setCreateSpaceOpen] = useState(false);
   useNotificationRealtime();
 
   // Guard against stale route context (e.g. after HMR or auth state changes)
@@ -64,6 +66,7 @@ function WorkspaceLayout() {
             wikiSpaces={wikiSpaces}
             enabledModules={enabledModules}
             onCreateProject={() => setCreateOpen(true)}
+            onCreateSpace={() => setCreateSpaceOpen(true)}
           />
           <div className="flex flex-1 flex-col overflow-hidden">
             <Topbar />
@@ -77,6 +80,11 @@ function WorkspaceLayout() {
         <CreateProjectDialog
           open={createOpen}
           onClose={() => setCreateOpen(false)}
+          workspaceId={workspace.id}
+        />
+        <CreateSpaceDialog
+          open={createSpaceOpen}
+          onClose={() => setCreateSpaceOpen(false)}
           workspaceId={workspace.id}
         />
       </div>

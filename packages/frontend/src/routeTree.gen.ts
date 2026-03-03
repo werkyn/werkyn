@@ -25,7 +25,6 @@ import { Route as ShareFilesTokenRouteImport } from './routes/share.files.$token
 import { Route as AuthOidcCompleteRouteImport } from './routes/auth.oidc.complete'
 import { Route as AuthedWorkspaceSlugTimeRouteImport } from './routes/_authed/$workspaceSlug/time'
 import { Route as AuthedWorkspaceSlugSettingsRouteImport } from './routes/_authed/$workspaceSlug/settings'
-import { Route as AuthedWorkspaceSlugMyTasksRouteImport } from './routes/_authed/$workspaceSlug/my-tasks'
 import { Route as AuthedWorkspaceSlugKnowledgeRouteImport } from './routes/_authed/$workspaceSlug/knowledge'
 import { Route as AuthedWorkspaceSlugDriveRouteImport } from './routes/_authed/$workspaceSlug/drive'
 import { Route as AuthedWorkspaceSlugChatRouteImport } from './routes/_authed/$workspaceSlug/chat'
@@ -120,12 +119,6 @@ const AuthedWorkspaceSlugSettingsRoute =
     path: '/settings',
     getParentRoute: () => AuthedWorkspaceSlugRoute,
   } as any)
-const AuthedWorkspaceSlugMyTasksRoute =
-  AuthedWorkspaceSlugMyTasksRouteImport.update({
-    id: '/my-tasks',
-    path: '/my-tasks',
-    getParentRoute: () => AuthedWorkspaceSlugRoute,
-  } as any)
 const AuthedWorkspaceSlugKnowledgeRoute =
   AuthedWorkspaceSlugKnowledgeRouteImport.update({
     id: '/knowledge',
@@ -213,7 +206,6 @@ export interface FileRoutesByFullPath {
   '/$workspaceSlug/chat': typeof AuthedWorkspaceSlugChatRoute
   '/$workspaceSlug/drive': typeof AuthedWorkspaceSlugDriveRoute
   '/$workspaceSlug/knowledge': typeof AuthedWorkspaceSlugKnowledgeRoute
-  '/$workspaceSlug/my-tasks': typeof AuthedWorkspaceSlugMyTasksRoute
   '/$workspaceSlug/settings': typeof AuthedWorkspaceSlugSettingsRoute
   '/$workspaceSlug/time': typeof AuthedWorkspaceSlugTimeRouteWithChildren
   '/auth/oidc/complete': typeof AuthOidcCompleteRoute
@@ -242,7 +234,6 @@ export interface FileRoutesByTo {
   '/$workspaceSlug/chat': typeof AuthedWorkspaceSlugChatRoute
   '/$workspaceSlug/drive': typeof AuthedWorkspaceSlugDriveRoute
   '/$workspaceSlug/knowledge': typeof AuthedWorkspaceSlugKnowledgeRoute
-  '/$workspaceSlug/my-tasks': typeof AuthedWorkspaceSlugMyTasksRoute
   '/$workspaceSlug/settings': typeof AuthedWorkspaceSlugSettingsRoute
   '/auth/oidc/complete': typeof AuthOidcCompleteRoute
   '/share/files/$token': typeof ShareFilesTokenRoute
@@ -273,7 +264,6 @@ export interface FileRoutesById {
   '/_authed/$workspaceSlug/chat': typeof AuthedWorkspaceSlugChatRoute
   '/_authed/$workspaceSlug/drive': typeof AuthedWorkspaceSlugDriveRoute
   '/_authed/$workspaceSlug/knowledge': typeof AuthedWorkspaceSlugKnowledgeRoute
-  '/_authed/$workspaceSlug/my-tasks': typeof AuthedWorkspaceSlugMyTasksRoute
   '/_authed/$workspaceSlug/settings': typeof AuthedWorkspaceSlugSettingsRoute
   '/_authed/$workspaceSlug/time': typeof AuthedWorkspaceSlugTimeRouteWithChildren
   '/auth/oidc/complete': typeof AuthOidcCompleteRoute
@@ -305,7 +295,6 @@ export interface FileRouteTypes {
     | '/$workspaceSlug/chat'
     | '/$workspaceSlug/drive'
     | '/$workspaceSlug/knowledge'
-    | '/$workspaceSlug/my-tasks'
     | '/$workspaceSlug/settings'
     | '/$workspaceSlug/time'
     | '/auth/oidc/complete'
@@ -334,7 +323,6 @@ export interface FileRouteTypes {
     | '/$workspaceSlug/chat'
     | '/$workspaceSlug/drive'
     | '/$workspaceSlug/knowledge'
-    | '/$workspaceSlug/my-tasks'
     | '/$workspaceSlug/settings'
     | '/auth/oidc/complete'
     | '/share/files/$token'
@@ -364,7 +352,6 @@ export interface FileRouteTypes {
     | '/_authed/$workspaceSlug/chat'
     | '/_authed/$workspaceSlug/drive'
     | '/_authed/$workspaceSlug/knowledge'
-    | '/_authed/$workspaceSlug/my-tasks'
     | '/_authed/$workspaceSlug/settings'
     | '/_authed/$workspaceSlug/time'
     | '/auth/oidc/complete'
@@ -508,13 +495,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedWorkspaceSlugSettingsRouteImport
       parentRoute: typeof AuthedWorkspaceSlugRoute
     }
-    '/_authed/$workspaceSlug/my-tasks': {
-      id: '/_authed/$workspaceSlug/my-tasks'
-      path: '/my-tasks'
-      fullPath: '/$workspaceSlug/my-tasks'
-      preLoaderRoute: typeof AuthedWorkspaceSlugMyTasksRouteImport
-      parentRoute: typeof AuthedWorkspaceSlugRoute
-    }
     '/_authed/$workspaceSlug/knowledge': {
       id: '/_authed/$workspaceSlug/knowledge'
       path: '/knowledge'
@@ -647,7 +627,6 @@ interface AuthedWorkspaceSlugRouteChildren {
   AuthedWorkspaceSlugChatRoute: typeof AuthedWorkspaceSlugChatRoute
   AuthedWorkspaceSlugDriveRoute: typeof AuthedWorkspaceSlugDriveRoute
   AuthedWorkspaceSlugKnowledgeRoute: typeof AuthedWorkspaceSlugKnowledgeRoute
-  AuthedWorkspaceSlugMyTasksRoute: typeof AuthedWorkspaceSlugMyTasksRoute
   AuthedWorkspaceSlugSettingsRoute: typeof AuthedWorkspaceSlugSettingsRoute
   AuthedWorkspaceSlugTimeRoute: typeof AuthedWorkspaceSlugTimeRouteWithChildren
   AuthedWorkspaceSlugIndexRoute: typeof AuthedWorkspaceSlugIndexRoute
@@ -660,7 +639,6 @@ const AuthedWorkspaceSlugRouteChildren: AuthedWorkspaceSlugRouteChildren = {
   AuthedWorkspaceSlugChatRoute: AuthedWorkspaceSlugChatRoute,
   AuthedWorkspaceSlugDriveRoute: AuthedWorkspaceSlugDriveRoute,
   AuthedWorkspaceSlugKnowledgeRoute: AuthedWorkspaceSlugKnowledgeRoute,
-  AuthedWorkspaceSlugMyTasksRoute: AuthedWorkspaceSlugMyTasksRoute,
   AuthedWorkspaceSlugSettingsRoute: AuthedWorkspaceSlugSettingsRoute,
   AuthedWorkspaceSlugTimeRoute: AuthedWorkspaceSlugTimeRouteWithChildren,
   AuthedWorkspaceSlugIndexRoute: AuthedWorkspaceSlugIndexRoute,

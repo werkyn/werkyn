@@ -6,7 +6,6 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  CheckSquare,
   HardDrive,
   Clock,
   MessageSquare,
@@ -24,9 +23,10 @@ interface SidebarProps {
   wikiSpaces?: WikiSpace[];
   enabledModules?: string[];
   onCreateProject?: () => void;
+  onCreateSpace?: () => void;
 }
 
-export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["drive", "wiki", "time", "chat"], onCreateProject }: SidebarProps) {
+export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["drive", "wiki", "time", "chat"], onCreateProject, onCreateSpace }: SidebarProps) {
   const { workspaceSlug } = useParams({ strict: false }) as { workspaceSlug: string };
   const { projectId } = useParams({ strict: false }) as { projectId?: string };
   const workspaces = useAuthStore((s) => s.workspaces);
@@ -70,7 +70,7 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
         )}
       >
         <div>
-          <div className="flex items-center justify-between px-3 py-3">
+          <div className="flex h-12 items-center justify-between px-3 border-b border-sidebar-border dark:border-white/10">
             <img
               src="/werkyn_logo.svg"
               alt="Werkyn"
@@ -95,11 +95,9 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
               </button>
             </div>
           </div>
-          <hr className="border-sidebar-border dark:border-white/10" />
-          <div className="px-3 py-3">
+          <div className="px-3 py-3 border-b border-sidebar-border dark:border-white/10">
             <WorkspaceSwitcher currentSlug={workspaceSlug} />
           </div>
-          <hr className="border-sidebar-border dark:border-white/10" />
         </div>
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -112,16 +110,6 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
         >
           <LayoutDashboard className="h-4 w-4" />
           Dashboard
-        </Link>
-
-        <Link
-          to="/$workspaceSlug/my-tasks"
-          params={{ workspaceSlug }}
-          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
-          activeProps={{ className: "bg-accent font-medium" }}
-        >
-          <CheckSquare className="h-4 w-4" />
-          My Tasks
         </Link>
 
         {enabledModules.includes("drive") && (
@@ -208,7 +196,7 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
 
         {enabledModules.includes("wiki") && (
           <div className="pt-4">
-            <div className="px-2 pb-1">
+            <div className="flex items-center justify-between px-2 pb-1">
               <Link
                 to="/$workspaceSlug/knowledge"
                 params={{ workspaceSlug }}
@@ -217,6 +205,15 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
               >
                 Knowledge
               </Link>
+              {permissions.canCreate && (
+                <button
+                  onClick={onCreateSpace}
+                  className="rounded p-0.5 hover:bg-accent transition-colors"
+                  aria-label="New space"
+                >
+                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
             </div>
 
             {wikiSpaces.map((space) => (
@@ -227,7 +224,9 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
                   navigate({
                     to: "/$workspaceSlug/knowledge",
                     params: { workspaceSlug },
-                    search: { spaceId, pageId },
+                    search: pageId
+                      ? { spaceId, pageId }
+                      : { spaceId },
                   });
                 }}
               />

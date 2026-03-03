@@ -5,6 +5,7 @@ import type {
   UpdateWorkspaceMemberInput,
   UpdateWorkspaceSettingsInput,
   WorkspaceSearchInput,
+  ActivityLogQueryInput,
 } from "@pm/shared";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../utils/errors.js";
 
@@ -393,6 +394,48 @@ export async function updateWorkspaceSettings(
     },
     update: data,
   });
+}
+
+export async function listWorkspaceActivity(
+  prisma: PrismaClient,
+  workspaceId: string,
+  query: ActivityLogQueryInput,
+) {
+  const where = {
+    task: { project: { workspaceId } },
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.activityLog.findMany({
+      where,
+      include: {
+        actor: {
+          select: { id: true, displayName: true, avatarUrl: true },
+        },
+        task: {
+          select: {
+            id: true,
+            title: true,
+            project: { select: { id: true, name: true, color: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (query.page - 1) * query.limit,
+      take: query.limit,
+    }),
+    prisma.activityLog.count({ where }),
+  ]);
+
+  return {
+    data,
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    },
+  };
 }
 
 export async function searchWikiPages(

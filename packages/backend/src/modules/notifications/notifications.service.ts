@@ -101,6 +101,9 @@ export async function listNotifications(
   if (query.unreadOnly) {
     where.read = false;
   }
+  if (query.type) {
+    where.type = { in: query.type.split(",") };
+  }
 
   let validCursor = query.cursor;
   if (validCursor) {
