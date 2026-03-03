@@ -21,6 +21,7 @@ interface WikiPageTreeItemProps {
   depth?: number;
   activePageId?: string;
   onPageClick: (pageId: string) => void;
+  onRootClick?: () => void;
 }
 
 export function WikiPageTreeItem({
@@ -28,6 +29,7 @@ export function WikiPageTreeItem({
   depth = 0,
   activePageId,
   onPageClick,
+  onRootClick,
 }: WikiPageTreeItemProps) {
   const [expanded, setExpanded] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -122,7 +124,7 @@ export function WikiPageTreeItem({
           />
         ) : (
           <button
-            onClick={() => onPageClick(page.id)}
+            onClick={() => onRootClick ? onRootClick() : onPageClick(page.id)}
             className="flex flex-1 items-center gap-1 min-w-0"
           >
             {page.icon ? (
