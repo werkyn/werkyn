@@ -6,7 +6,6 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  CheckSquare,
   HardDrive,
   Clock,
   MessageSquare,
@@ -112,16 +111,6 @@ export function Sidebar({ projects = [], wikiSpaces = [], enabledModules = ["dri
         >
           <LayoutDashboard className="h-4 w-4" />
           Dashboard
-        </Link>
-
-        <Link
-          to="/$workspaceSlug/my-tasks"
-          params={{ workspaceSlug }}
-          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
-          activeProps={{ className: "bg-accent font-medium" }}
-        >
-          <CheckSquare className="h-4 w-4" />
-          My Tasks
         </Link>
 
         {enabledModules.includes("drive") && (

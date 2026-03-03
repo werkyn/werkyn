@@ -1,6 +1,5 @@
-import { Link } from "@tanstack/react-router";
-import { useMyTasks } from "@/features/my-tasks/api";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMyTasks, type MyTask } from "@/features/my-tasks/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -14,20 +13,31 @@ const priorityVariant: Record<string, string> = {
 
 interface MyTasksWidgetProps {
   workspaceId: string;
-  workspaceSlug: string;
+  onTaskClick: (taskId: string, projectId: string) => void;
 }
 
-export function MyTasksWidget({ workspaceId, workspaceSlug }: MyTasksWidgetProps) {
+export function MyTasksWidget({ workspaceId, onTaskClick }: MyTasksWidgetProps) {
   const { data, isLoading } = useMyTasks(workspaceId);
   const tasks = data?.data ?? [];
-  const displayTasks = tasks.slice(0, 5);
+
+  const grouped = tasks.reduce<Record<string, { project: { id: string; name: string; color: string | null }; tasks: MyTask[] }>>(
+    (acc, task) => {
+      const pid = task.project.id;
+      if (!acc[pid]) {
+        acc[pid] = { project: task.project, tasks: [] };
+      }
+      acc[pid].tasks.push(task);
+      return acc;
+    },
+    {},
+  );
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">My Tasks</CardTitle>
       </CardHeader>
-      <CardContent className="pb-2">
+      <CardContent className="pb-3">
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -37,58 +47,53 @@ export function MyTasksWidget({ workspaceId, workspaceSlug }: MyTasksWidgetProps
               </div>
             ))}
           </div>
-        ) : displayTasks.length === 0 ? (
+        ) : tasks.length === 0 ? (
           <p className="text-sm text-muted-foreground py-2">No tasks assigned</p>
         ) : (
-          <div className="space-y-2">
-            {displayTasks.map((task) => (
-              <Link
-                key={task.id}
-                to="/$workspaceSlug/projects/$projectId/board"
-                params={{ workspaceSlug, projectId: task.projectId }}
-                search={{ task: task.id }}
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors -mx-2"
-              >
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  {task.project && (
-                    <div
-                      className="h-2 w-2 rounded-full shrink-0"
-                      style={{ backgroundColor: task.project.color ?? "#6366f1" }}
-                      title={task.project.name}
-                    />
-                  )}
-                  <span className="truncate">{task.title}</span>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={cn("text-[10px] px-1.5 py-0 border-0 shrink-0", priorityVariant[task.priority])}
-                >
-                  {task.priority[0] + task.priority.slice(1).toLowerCase()}
-                </Badge>
-                {task.dueDate && (
-                  <span className={cn(
-                    "text-xs shrink-0",
-                    new Date(task.dueDate) < new Date() ? "text-destructive" : "text-muted-foreground",
-                  )}>
-                    {new Date(task.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          <div className="max-h-[400px] overflow-y-auto space-y-4">
+            {Object.entries(grouped).map(([pid, group]) => (
+              <div key={pid} className="space-y-1">
+                <div className="flex items-center gap-2 pb-0.5">
+                  <div
+                    className="h-2.5 w-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: group.project.color ?? "#6366f1" }}
+                  />
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {group.project.name}
                   </span>
-                )}
-              </Link>
+                </div>
+
+                {group.tasks.map((task) => (
+                  <button
+                    key={task.id}
+                    onClick={() => onTaskClick(task.id, task.project.id)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left hover:bg-accent transition-colors -mx-2"
+                  >
+                    <span className="flex-1 min-w-0 truncate">{task.title}</span>
+                    <Badge
+                      variant="outline"
+                      className={cn("text-[10px] px-1.5 py-0 border-0 shrink-0", priorityVariant[task.priority])}
+                    >
+                      {task.priority[0] + task.priority.slice(1).toLowerCase()}
+                    </Badge>
+                    {task.dueDate && (
+                      <span className={cn(
+                        "text-xs shrink-0",
+                        new Date(task.dueDate) < new Date() ? "text-destructive" : "text-muted-foreground",
+                      )}>
+                        {new Date(task.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      </span>
+                    )}
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                      {task.status.name}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         )}
       </CardContent>
-      {tasks.length > 0 && (
-        <CardFooter className="pt-0">
-          <Link
-            to="/$workspaceSlug/my-tasks"
-            params={{ workspaceSlug }}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            View all tasks ({tasks.length})
-          </Link>
-        </CardFooter>
-      )}
     </Card>
   );
 }
