@@ -2,6 +2,17 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import * as oidcService from "./oidc.service.js";
 import { env } from "../../../config/env.js";
 
+function sanitizeReturnUrl(raw: string | undefined): string {
+  if (!raw) return "/";
+  // Check both raw and decoded values
+  for (const value of [raw, decodeURIComponent(raw)]) {
+    if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\") || value.includes("\0")) {
+      return "/";
+    }
+  }
+  return raw;
+}
+
 export async function oidcLoginHandler(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -12,10 +23,11 @@ export async function oidcLoginHandler(
   };
 
   try {
+    const returnUrl = sanitizeReturnUrl(query.return_url);
     const authUrl = await oidcService.initiateOidcLogin(
       request.server.prisma,
       query.connector_id,
-      query.return_url,
+      returnUrl,
     );
 
     return reply.redirect(authUrl);
@@ -71,11 +83,7 @@ export async function oidcCallbackHandler(
     });
 
     // Redirect to the OIDC complete page
-    const returnUrl = result.returnUrl || "/";
-    const safeReturnUrl =
-      returnUrl.startsWith("/") && !returnUrl.startsWith("//")
-        ? returnUrl
-        : "/";
+    const safeReturnUrl = sanitizeReturnUrl(result.returnUrl ?? undefined);
     return reply.redirect(
       `${env.FRONTEND_URL}/auth/oidc/complete?return_url=${encodeURIComponent(safeReturnUrl)}`,
     );

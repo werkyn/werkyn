@@ -39,17 +39,22 @@ export function usePageLock(pageId: string) {
     releaseLock.mutate();
   }, [releaseLock]);
 
+  const releaseLockRef = useRef(releaseLock);
+  const isLockedByMeRef = useRef(isLockedByMe);
+  useEffect(() => { releaseLockRef.current = releaseLock; }, [releaseLock]);
+  useEffect(() => { isLockedByMeRef.current = isLockedByMe; }, [isLockedByMe]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (heartbeatInterval.current) {
         clearInterval(heartbeatInterval.current);
       }
-      if (isLockedByMe) {
-        releaseLock.mutate();
+      if (isLockedByMeRef.current) {
+        releaseLockRef.current.mutate();
       }
     };
-  }, [pageId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pageId]);
 
   return {
     lock,

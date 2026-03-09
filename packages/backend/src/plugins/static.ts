@@ -4,6 +4,8 @@ import type { FastifyInstance } from "fastify";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { env } from "../config/env.js";
+import { authenticate } from "../middleware/authenticate.js";
+import { ForbiddenError } from "../utils/errors.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -27,9 +29,25 @@ export default fp(async (fastify: FastifyInstance) => {
   // Workspace-scoped uploads
   fastify.get<{ Params: { workspaceId: string; '*': string } }>(
     '/storage/:workspaceId/uploads/*',
+    { preHandler: [authenticate] },
     async (request, reply) => {
       const { workspaceId } = request.params;
       const subPath = request.params['*'];
+
+      // Path traversal protection
+      const resolved = path.resolve(storageDir, workspaceId, 'uploads', subPath);
+      if (!resolved.startsWith(storageDir + path.sep)) {
+        throw new ForbiddenError("Invalid file path");
+      }
+
+      // Workspace membership check
+      const membership = await fastify.prisma.workspaceMember.findUnique({
+        where: { userId_workspaceId: { userId: request.user!.id, workspaceId } },
+      });
+      if (!membership) {
+        throw new ForbiddenError("Not a member of this workspace");
+      }
+
       return reply.sendFile(
         path.join(workspaceId, 'uploads', subPath),
         storageDir,

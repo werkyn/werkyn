@@ -6,6 +6,7 @@ import type { StorageProvider } from "../../services/storage.js";
 import { IdMapper, UserMapper } from "./id-mapper.js";
 import { ValidationError } from "../../utils/errors.js";
 import { rewriteUrls } from "./backup-assets.js";
+import { toCustomFieldType, toPriority, toJsonValue } from "./backup-types.js";
 
 /** Parse and validate a backup JSON buffer. */
 function parseBackupFile(buffer: Buffer): BackupFile {
@@ -242,8 +243,8 @@ export async function executeRestore(
             data: {
               projectId: newProject.id,
               name: f.name,
-              type: f.type as any,
-              options: f.options as any,
+              type: toCustomFieldType(f.type),
+              options: toJsonValue(f.options),
               required: f.required,
               position: f.position,
             },
@@ -284,7 +285,7 @@ export async function executeRestore(
               statusId,
               title: t.title,
               description: t.description,
-              priority: t.priority as any,
+              priority: toPriority(t.priority),
               position: t.position,
               dueDate: t.dueDate,
               startDate: t.startDate,
@@ -337,7 +338,7 @@ export async function executeRestore(
               data: {
                 taskId: newTask.id,
                 fieldId,
-                value: v.value as any,
+                value: toJsonValue(v.value),
               },
             }).catch(() => {});
           }
@@ -362,7 +363,7 @@ export async function executeRestore(
               data: {
                 taskId: newTask.id,
                 action: a.action,
-                details: a.details as any,
+                details: toJsonValue(a.details),
                 actorId: userMapper.resolveOptional(a.actorRef),
                 createdAt: new Date(a.createdAt),
               },
@@ -510,7 +511,7 @@ export async function executeRestore(
             data: {
               spaceId: newSpace.id,
               title: p.title,
-              content: content as any,
+              content: toJsonValue(content),
               icon: p.icon,
               position: p.position,
               parentId: null,
@@ -529,8 +530,8 @@ export async function executeRestore(
                 body: c.body,
                 resolved: c.resolved,
                 highlightId: c.highlightId,
-                selectionStart: c.selectionStart as any,
-                selectionEnd: c.selectionEnd as any,
+                selectionStart: toJsonValue(c.selectionStart),
+                selectionEnd: toJsonValue(c.selectionEnd),
                 createdAt: new Date(c.createdAt),
               },
             });

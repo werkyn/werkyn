@@ -60,6 +60,7 @@ async function main() {
         passwordHash,
         displayName: "Alice Johnson",
         emailVerified: true,
+        isInstanceAdmin: true,
       },
     }),
     prisma.user.create({

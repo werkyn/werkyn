@@ -226,8 +226,9 @@ export async function exportBackup(
 
       messages = dbMessages.map((m) => {
         userIdSet.add(m.userId);
-        const reactions = (m as any).reactions
-          ? (m as any).reactions.map((r: any) => {
+        const mWithReactions = m as typeof m & { reactions?: Array<{ userId: string; emoji: string }> };
+        const reactions = mWithReactions.reactions
+          ? mWithReactions.reactions.map((r) => {
               userIdSet.add(r.userId);
               return { userRef: r.userId, emoji: r.emoji };
             })
@@ -277,8 +278,19 @@ export async function exportBackup(
     const pages = dbPages.map((p) => {
       if (p.createdById) userIdSet.add(p.createdById);
 
-      const comments = (p as any).comments
-        ? (p as any).comments.map((c: any) => {
+      type WikiComment = {
+        id: string;
+        body: string;
+        authorId: string;
+        resolved: boolean;
+        highlightId: string;
+        selectionStart: unknown;
+        selectionEnd: unknown;
+        createdAt: Date;
+      };
+      const pWithComments = p as typeof p & { comments?: WikiComment[] };
+      const comments = pWithComments.comments
+        ? pWithComments.comments.map((c) => {
             if (c.authorId) userIdSet.add(c.authorId);
             return {
               _originalId: c.id,

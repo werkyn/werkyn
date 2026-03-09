@@ -9,18 +9,12 @@ export async function instanceAdmin(
     throw new ForbiddenError("Authentication required");
   }
 
-  const adminMembership = await request.server.prisma.workspaceMember.findFirst(
-    {
-      where: {
-        userId: request.user.id,
-        role: "ADMIN",
-      },
-    },
-  );
+  const user = await request.server.prisma.user.findUnique({
+    where: { id: request.user.id },
+    select: { isInstanceAdmin: true },
+  });
 
-  if (!adminMembership) {
-    throw new ForbiddenError(
-      "Instance admin access required (must be admin of at least one workspace)",
-    );
+  if (!user?.isInstanceAdmin) {
+    throw new ForbiddenError("Instance admin access required");
   }
 }
