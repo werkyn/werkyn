@@ -36,7 +36,6 @@ docker compose up --build
 This builds the app image, starts PostgreSQL, runs database migrations, and launches the server.
 
 - **App**: `http://localhost:3000`
-- **Mailpit** (email testing UI): `http://localhost:8025`
 
 ## Features
 
@@ -138,13 +137,13 @@ For contributors who want to run outside of Docker:
 ### Prerequisites
 - **Node.js** >= 20.0.0
 - **pnpm** >= 9.0.0
-- **Docker** (for PostgreSQL and Mailpit)
+- **Docker** (for PostgreSQL)
 
 ### Setup
 
 1. Start the infrastructure services:
 ```bash
-docker compose up postgres mailpit
+docker compose up postgres
 ```
 
 2. Install dependencies:

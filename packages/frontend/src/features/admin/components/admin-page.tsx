@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
-import { Settings, Users, UsersRound, Mail, Blocks, Shield, Archive } from "lucide-react";
+import { Settings, Users, UsersRound, Mail, Blocks, Shield, Archive, AtSign } from "lucide-react";
 import { GeneralSettings } from "./general-settings";
 import { MembersSettings } from "./members-settings";
 import { GroupsManager } from "./groups-manager";
 import { InviteSettings } from "./invite-settings";
 import { ModulesSettings } from "./modules-settings";
 import { AuthenticationSettings } from "./authentication-settings";
+import { EmailSettings } from "./email-settings";
 import { BackupSettings } from "./backup-settings";
 
 const tabs = [
@@ -18,6 +19,7 @@ const tabs = [
   { id: "invites", label: "Invites", icon: Mail },
   { id: "modules", label: "Modules", icon: Blocks },
   { id: "authentication", label: "Authentication", icon: Shield },
+  { id: "email", label: "Email", icon: AtSign },
   { id: "backup", label: "Backup", icon: Archive },
 ] as const;
 
@@ -67,6 +69,7 @@ export function AdminPage() {
       {activeTab === "invites" && <InviteSettings workspaceId={workspaceId} />}
       {activeTab === "modules" && <ModulesSettings workspaceId={workspaceId} />}
       {activeTab === "authentication" && <AuthenticationSettings />}
+      {activeTab === "email" && <EmailSettings />}
       {activeTab === "backup" && <BackupSettings workspaceId={workspaceId} />}
     </div>
   );

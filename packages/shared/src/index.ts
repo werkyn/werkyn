@@ -26,6 +26,7 @@ export * from "./schemas/group.js";
 export * from "./schemas/workspace-settings.js";
 export * from "./schemas/time-entry.js";
 export * from "./schemas/sso.js";
+export * from "./schemas/email-config.js";
 export * from "./schemas/chat.js";
 export * from "./schemas/backup.js";
 export * from "./schemas/dashboard-preference.js";

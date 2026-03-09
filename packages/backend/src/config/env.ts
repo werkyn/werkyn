@@ -26,7 +26,7 @@ const envSchema = z.object({
 
   FRONTEND_URL: z.string().default("http://localhost:5173"),
 
-  SMTP_HOST: z.string().default("localhost"),
+  SMTP_HOST: z.string().default(""),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_SECURE: z
     .string()
@@ -34,7 +34,7 @@ const envSchema = z.object({
     .default("false"),
   SMTP_USER: z.string().default(""),
   SMTP_PASS: z.string().default(""),
-  SMTP_FROM: z.string().default("noreply@example.com"),
+  SMTP_FROM: z.string().default(""),
 
   STORAGE_DIR: z.string().default("./storage"),
   MAX_FILE_SIZE: z.coerce.number().default(10737418240), // 10GB

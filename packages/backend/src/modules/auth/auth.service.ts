@@ -114,7 +114,7 @@ export async function register(
       email: data.email.toLowerCase(),
       passwordHash,
       displayName: data.displayName,
-      emailVerified: false,
+      emailVerified: isFirstUser,
       isInstanceAdmin: isFirstUser,
     },
     select: {
@@ -138,18 +138,19 @@ export async function register(
     },
   });
 
-  // Generate verification token
-  const verificationToken = generateSecureToken();
-  await prisma.emailVerificationToken.create({
-    data: {
-      userId: user.id,
-      token: verificationToken,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-    },
-  });
+  // Skip verification for first user (already verified as instance admin)
+  if (!isFirstUser) {
+    const verificationToken = generateSecureToken();
+    await prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        token: verificationToken,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      },
+    });
 
-  // Send verification email
-  await sendVerificationEmail(user.email, verificationToken);
+    await sendVerificationEmail(user.email, verificationToken);
+  }
 
   // Handle invite token if provided
   if (data.inviteToken) {

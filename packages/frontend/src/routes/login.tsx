@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { LoginForm } from "@/features/auth/components/login-form";
+import { RegisterForm } from "@/features/auth/components/register-form";
 import { SsoButtons } from "@/features/auth/components/sso-buttons";
 import { useSsoInfo } from "@/features/auth/api";
 import {
@@ -27,6 +28,10 @@ function LoginPage() {
 
   const ssoEnabled = ssoInfo?.data.enabled && ssoInfo.data.connectors.length > 0;
   const passwordEnabled = ssoInfo?.data.passwordLoginEnabled ?? true;
+  const hasUsers = ssoInfo?.data.hasUsers ?? true;
+
+  // First-user setup: show registration form
+  const isFirstUserSetup = ssoInfo !== undefined && !hasUsers;
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -40,11 +45,15 @@ function LoginPage() {
         </div>
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-heading">Welcome back</CardTitle>
+            <CardTitle className="text-2xl font-heading">
+              {isFirstUserSetup ? "Create Admin Account" : "Welcome back"}
+            </CardTitle>
           <CardDescription>
-            {inviteToken
-              ? "Sign in to accept your workspace invite"
-              : "Sign in to your account"}
+            {isFirstUserSetup
+              ? "Set up the first account for your Werkyn instance"
+              : inviteToken
+                ? "Sign in to accept your workspace invite"
+                : "Sign in to your account"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -54,31 +63,37 @@ function LoginPage() {
             </p>
           )}
 
-          {ssoEnabled && (
-            <SsoButtons connectors={ssoInfo!.data.connectors} />
-          )}
-
-          {ssoEnabled && passwordEnabled && (
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
-                  Or continue with email
-                </span>
-              </div>
-            </div>
-          )}
-
-          {passwordEnabled ? (
-            <LoginForm inviteToken={inviteToken} />
-          ) : ssoEnabled ? (
-            <p className="text-center text-sm text-muted-foreground">
-              Password login is disabled. Use SSO to sign in.
-            </p>
+          {isFirstUserSetup ? (
+            <RegisterForm />
           ) : (
-            <LoginForm inviteToken={inviteToken} />
+            <>
+              {ssoEnabled && (
+                <SsoButtons connectors={ssoInfo!.data.connectors} />
+              )}
+
+              {ssoEnabled && passwordEnabled && (
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">
+                      Or continue with email
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {passwordEnabled ? (
+                <LoginForm inviteToken={inviteToken} />
+              ) : ssoEnabled ? (
+                <p className="text-center text-sm text-muted-foreground">
+                  Password login is disabled. Use SSO to sign in.
+                </p>
+              ) : (
+                <LoginForm inviteToken={inviteToken} />
+              )}
+            </>
           )}
         </CardContent>
         </Card>
