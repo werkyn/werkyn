@@ -42,7 +42,9 @@ export async function sendTestEmailHandler(
 
   if (!host) {
     return reply.status(400).send({
-      error: "No email server configured. Please save SMTP settings first.",
+      statusCode: 400,
+      error: "Bad Request",
+      message: "No email server configured. Please save SMTP settings first.",
     });
   }
 
@@ -74,7 +76,9 @@ export async function sendTestEmailHandler(
     });
   } catch (error: any) {
     return reply.status(400).send({
-      error: `Failed to send test email: ${error.message}`,
+      statusCode: 400,
+      error: "Bad Request",
+      message: `Failed to send test email: ${error.message}`,
     });
   }
 }

@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { UpdateEmailConfigSchema, type UpdateEmailConfigInput } from "@pm/shared";
 import { useEmailConfig, useUpdateEmailConfig, useSendTestEmail } from "../email-api";
+import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,7 +56,12 @@ export function EmailSettings() {
   const handleSendTest = () => {
     sendTest.mutate(undefined, {
       onSuccess: (res) => toast.success(res.data.message),
-      onError: () => toast.error("Failed to send test email"),
+      onError: (err) =>
+        toast.error(
+          err instanceof ApiError
+            ? err.message
+            : "Failed to send test email",
+        ),
     });
   };
 
@@ -156,7 +162,7 @@ export function EmailSettings() {
           )}
         </div>
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex items-center gap-3 pt-2">
           <Button
             type="submit"
             disabled={updateConfig.isPending}
@@ -172,6 +178,9 @@ export function EmailSettings() {
             <Send className="h-4 w-4 mr-1" />
             {sendTest.isPending ? "Sending..." : "Send Test Email"}
           </Button>
+          <span className="text-xs text-muted-foreground">
+            Sends to your account email
+          </span>
         </div>
       </form>
     </div>
