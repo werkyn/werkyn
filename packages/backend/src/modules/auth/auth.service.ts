@@ -105,12 +105,17 @@ export async function register(
 
   const passwordHash = await hashPassword(data.password);
 
+  // First user becomes instance admin
+  const userCount = await prisma.user.count();
+  const isFirstUser = userCount === 0;
+
   const user = await prisma.user.create({
     data: {
       email: data.email.toLowerCase(),
       passwordHash,
       displayName: data.displayName,
       emailVerified: false,
+      isInstanceAdmin: isFirstUser,
     },
     select: {
       id: true,
@@ -143,8 +148,8 @@ export async function register(
     },
   });
 
-  // Send verification email (fire-and-forget)
-  sendVerificationEmail(user.email, verificationToken);
+  // Send verification email
+  await sendVerificationEmail(user.email, verificationToken);
 
   // Handle invite token if provided
   if (data.inviteToken) {
@@ -386,7 +391,7 @@ export async function forgotPassword(prisma: PrismaClient, email: string) {
     },
   });
 
-  sendPasswordResetEmail(user.email, token);
+  await sendPasswordResetEmail(user.email, token);
 }
 
 export async function resetPassword(
@@ -506,7 +511,7 @@ export async function resendVerification(
     },
   });
 
-  sendVerificationEmail(user.email, token);
+  await sendVerificationEmail(user.email, token);
 
   return { message: "Verification email sent." };
 }

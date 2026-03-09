@@ -32,6 +32,7 @@ export default async function workspacesRoutes(fastify: FastifyInstance) {
   fastify.route({
     method: "POST",
     url: "/",
+    config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
     preHandler: [authenticate, validate(CreateWorkspaceSchema)],
     handler: createWorkspaceHandler,
   });

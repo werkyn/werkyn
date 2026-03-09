@@ -32,6 +32,14 @@ export class LocalStorageProvider implements StorageProvider {
     this.rootDir = path.resolve(rootDir);
   }
 
+  private safePath(storagePath: string): string {
+    const fullPath = path.resolve(this.rootDir, storagePath);
+    if (!fullPath.startsWith(this.rootDir + path.sep) && fullPath !== this.rootDir) {
+      throw new Error("Path traversal detected");
+    }
+    return fullPath;
+  }
+
   private buildPath(
     category: string,
     scopeId: string,
@@ -118,24 +126,24 @@ export class LocalStorageProvider implements StorageProvider {
   }
 
   async read(storagePath: string): Promise<Buffer> {
-    const fullPath = path.join(this.rootDir, storagePath);
+    const fullPath = this.safePath(storagePath);
     return fs.readFile(fullPath);
   }
 
   readStream(storagePath: string): fss.ReadStream {
-    const fullPath = path.join(this.rootDir, storagePath);
+    const fullPath = this.safePath(storagePath);
     return fss.createReadStream(fullPath);
   }
 
   async delete(storagePath: string): Promise<void> {
-    const fullPath = path.join(this.rootDir, storagePath);
+    const fullPath = this.safePath(storagePath);
     await fs.unlink(fullPath).catch(() => {
       // Ignore if file already deleted
     });
   }
 
   async exists(storagePath: string): Promise<boolean> {
-    const fullPath = path.join(this.rootDir, storagePath);
+    const fullPath = this.safePath(storagePath);
     try {
       await fs.access(fullPath);
       return true;
