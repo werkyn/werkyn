@@ -127,6 +127,20 @@ model EmailVerificationToken {
   @@index([token])
 }
 
+// ─── Email Config ────────────────────────────────────────
+
+model EmailConfig {
+  id          String   @id @default("singleton")
+  host        String   @default("") @db.VarChar(255)
+  port        Int      @default(587)
+  secure      Boolean  @default(false)
+  user        String   @default("") @db.VarChar(255)
+  pass        String   @default("") @db.VarChar(500)
+  fromAddress String   @default("") @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 // ─── SSO / OIDC ─────────────────────────────────────────
 
 model AuthProvider {

@@ -39,12 +39,16 @@ export default async function authRoutes(fastify: FastifyInstance) {
         },
       });
 
+      const userCount = await request.server.prisma.user.count({ take: 1 });
+      const hasUsers = userCount > 0;
+
       if (!config || !config.enabled) {
         return {
           data: {
             enabled: false,
             passwordLoginEnabled: true,
             connectors: [],
+            hasUsers,
           },
         };
       }
@@ -54,6 +58,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           enabled: config.enabled,
           passwordLoginEnabled: config.passwordLoginEnabled,
           connectors: config.connectors,
+          hasUsers,
         },
       };
     },

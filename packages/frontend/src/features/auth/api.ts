@@ -132,6 +132,7 @@ interface SsoInfoResponse {
     enabled: boolean;
     passwordLoginEnabled: boolean;
     connectors: SsoConnectorInfo[];
+    hasUsers: boolean;
   };
 }
 

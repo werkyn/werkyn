@@ -42,10 +42,12 @@ import groupsRoutes from "./modules/groups/groups.routes.js";
 import wikiRoutes from "./modules/wiki/wiki.routes.js";
 import timeRoutes from "./modules/time/time.routes.js";
 import ssoRoutes from "./modules/sso/sso.routes.js";
+import emailRoutes from "./modules/email/email.routes.js";
 import chatRoutes from "./modules/chat/chat.routes.js";
 import backupRoutes from "./modules/backup/backup.routes.js";
 import { broadcast, broadcastToWorkspace, broadcastToUser, broadcastToChannel } from "./modules/realtime/realtime.service.js";
 import { env } from "./config/env.js";
+import { setPrisma } from "./utils/mailer.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -96,8 +98,12 @@ export async function buildApp() {
   await app.register(wikiRoutes, { prefix: "/api" });
   await app.register(timeRoutes, { prefix: "/api" });
   await app.register(ssoRoutes, { prefix: "/api/admin/sso" });
+  await app.register(emailRoutes, { prefix: "/api/admin/email" });
   await app.register(chatRoutes, { prefix: "/api/chat" });
   await app.register(backupRoutes, { prefix: "/api/workspaces" });
+
+  // Give mailer access to prisma for DB-backed email config
+  setPrisma(app.prisma);
 
   // Decorate with broadcast functions for use by other modules
   app.decorate("broadcast", broadcast);
